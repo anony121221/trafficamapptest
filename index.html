@@ -123,6 +123,12 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="https://vjs.zencdn.net/8.6.1/video.min.js"></script>
-  <script src="renderer.js"></script>
+<script>
+  // REQUIRED for states that do NOT send CORS headers (OK, MO, SD, NV, UT, AL, etc.)
+  // Replace with your deployed Cloudflare Worker URL:
+  // Example: "https://trafficcam-proxy.YOURSUBDOMAIN.workers.dev/proxy?url="
+  window.PROXY_BASE_URL = "https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/proxy?url=";
+</script>
+<script src="renderer.js"></script>
 </body>
 </html>
