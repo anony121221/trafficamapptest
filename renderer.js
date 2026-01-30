@@ -1996,15 +1996,17 @@ async function showViewer(camera) {
   viewer.classList.remove('hidden');
 
 // Proxy media (especially HLS) through Cloudflare Worker to avoid CORS issues.
-const __proxyBase = await getProxyBaseUrl();
-const proxifyMedia = (u) => {
-  if (!u || typeof u !== 'string') return u;
-  if (!__proxyBase) return u;
-  // Avoid double-proxy
-  if (u.startsWith(__proxyBase) || u.startsWith(location.origin + '/proxy')) return u;
-  if (!/^https?:\/\//i.test(u)) return u;
-  return __proxyBase + encodeURIComponent(u);
-};
+  const __proxyBase = await getProxyBaseUrl();
+  const forceDirect = camera.forceDirect === true;
+  const proxifyMedia = (u) => {
+    if (!u || typeof u !== 'string') return u;
+    if (forceDirect) return u;
+    if (!__proxyBase) return u;
+    // Avoid double-proxy
+    if (u.startsWith(__proxyBase) || u.startsWith(location.origin + '/proxy')) return u;
+    if (!/^https?:\/\//i.test(u)) return u;
+    return __proxyBase + encodeURIComponent(u);
+  };
 
 
   if (!camera.displayMode) {
@@ -2062,14 +2064,15 @@ const proxifyMedia = (u) => {
     imageUrl = camera.imageUrl;
   }
 
-  if (videoUrl && isHlsUrl(videoUrl)) {
+  const rawVideoUrl = videoUrl;
+  if (videoUrl && isHlsUrl(videoUrl) && !forceDirect) {
     const proxy = await getProxyBaseUrl();
     if (proxy) {
       videoUrl = `${proxy}${encodeURIComponent(videoUrl)}`;
     }
   }
 
-  const supportsVideo = !!videoUrl && !brokenVideoUrls.has(videoUrl);
+  const supportsVideo = !!videoUrl && !brokenVideoUrls.has(rawVideoUrl);
   const supportsImage = !!imageUrl;
 
   if (!camera.displayMode) {
@@ -2159,7 +2162,7 @@ const proxifyMedia = (u) => {
 
   const preferredMode = camera.displayMode === 'video' && supportsVideo ? 'video' : (supportsImage ? 'image' : 'video');
 
-  if (preferredMode === 'video' && videoUrl && !brokenVideoUrls.has(videoUrl)) {
+  if (preferredMode === 'video' && videoUrl && !brokenVideoUrls.has(rawVideoUrl)) {
     const vid = document.createElement('video');
     vid.id = 'camera-player';
     vid.controls = true;
@@ -2181,8 +2184,13 @@ const proxifyMedia = (u) => {
         currentHls.attachMedia(vid);
         currentHls.on(window.Hls.Events.ERROR, (_, data) => {
           if (data && data.fatal) {
-            console.warn('HLS fatal error, falling back to image', data);
-            brokenVideoUrls.add(videoUrl);
+            console.warn('HLS fatal error', data);
+            if (!forceDirect && __proxyBase) {
+              camera.forceDirect = true;
+              showViewer(camera);
+              return;
+            }
+            brokenVideoUrls.add(rawVideoUrl);
             showFallbackImage();
           }
         });
