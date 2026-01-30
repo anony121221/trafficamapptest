@@ -4,55 +4,65 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Traffic Camera Map</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <link href="https://vjs.zencdn.net/8.6.1/video-js.css" rel="stylesheet" />
+
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <div id="sidebar">
     <div class="sidebar-header">
       <h1>Traffic Camera Map</h1>
     </div>
-    
+
     <div class="search-box">
       <input type="text" id="search-input" placeholder="Search cameras...">
     </div>
-    
-    <!-- Weather Layer Toggles (MRMS only) -->
+
+    <!-- Weather layer toggles (IDs must match renderer.js) -->
     <div class="weather-section">
       <label class="filter-label">WEATHER LAYERS</label>
-      
+
       <label class="toggle-item">
-        <div class="toggle-label">
-          <span>MRMS Radar</span>
-        </div>
-        <input type="checkbox" id="mrms-toggle" class="toggle-input">
-        <div class="toggle-switch"></div>
+        <input type="checkbox" id="mrms-toggle" checked>
+        <span>MRMS (Radar)</span>
       </label>
 
       <label class="toggle-item">
-        <div class="toggle-label">
-          <span>Weather Alerts</span>
-        </div>
-        <input type="checkbox" id="alerts-toggle" class="toggle-input">
-        <div class="toggle-switch"></div>
+        <input type="checkbox" id="alerts-toggle" checked>
+        <span>NWS Alerts</span>
       </label>
     </div>
-    
+
+    <!-- State filter (IDs must match renderer.js) -->
     <div class="filter-section">
       <label class="filter-label">STATE</label>
-      <select id="state-filter" class="filter-select">
+      <select id="state-filter">
         <option value="all">All States</option>
         <option value="AL">Alabama</option>
+        <option value="AK">Alaska</option>
+        <option value="AZ">Arizona</option>
+        <option value="AR">Arkansas</option>
+        <option value="CA">California</option>
+        <option value="CO">Colorado</option>
         <option value="CT">Connecticut</option>
+        <option value="DE">Delaware</option>
         <option value="FL">Florida</option>
+        <option value="GA">Georgia</option>
+        <option value="HI">Hawaii</option>
         <option value="ID">Idaho</option>
         <option value="IL">Illinois</option>
+        <option value="IN">Indiana</option>
         <option value="IA">Iowa</option>
         <option value="KS">Kansas</option>
+        <option value="KY">Kentucky</option>
         <option value="LA">Louisiana</option>
         <option value="ME">Maine</option>
+        <option value="MD">Maryland</option>
         <option value="MA">Massachusetts</option>
+        <option value="MI">Michigan</option>
         <option value="MN">Minnesota</option>
         <option value="MS">Mississippi</option>
         <option value="MO">Missouri</option>
@@ -60,9 +70,12 @@
         <option value="NE">Nebraska</option>
         <option value="NV">Nevada</option>
         <option value="NH">New Hampshire</option>
+        <option value="NJ">New Jersey</option>
         <option value="NM">New Mexico</option>
         <option value="NY">New York</option>
         <option value="NC">North Carolina</option>
+        <option value="ND">North Dakota</option>
+        <option value="OH">Ohio</option>
         <option value="OK">Oklahoma</option>
         <option value="OR">Oregon</option>
         <option value="PA">Pennsylvania</option>
@@ -78,7 +91,7 @@
         <option value="OTM">OpenTrafficMap</option>
       </select>
     </div>
-    
+
     <div class="stats-section">
       <div class="stat-item">
         <span class="stat-label">Showing:</span>
@@ -89,10 +102,11 @@
         <span class="stat-value" id="total-count">0</span>
       </div>
     </div>
-    
+
     <div id="camera-list" class="camera-list"></div>
   </div>
-  
+
+  <!-- City search UI (initCitySearch needs these IDs) -->
   <div id="city-search-container">
     <button id="city-search-btn" title="Search location">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -108,24 +122,26 @@
     <span class="top-stat">Cameras: <strong id="cameras-count">0</strong></span>
     <span class="top-stat">States: <strong id="states-count">30+</strong></span>
   </div>
-  
+
   <div id="map"></div>
-  
+
   <div id="viewer" class="hidden">
     <button id="close-viewer">✕</button>
     <h3 id="viewer-title"></h3>
     <div id="viewer-content"></div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+  <!-- HLS support (renderer uses window.Hls when needed) -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="https://vjs.zencdn.net/8.6.1/video.min.js"></script>
+
+  <!-- MUST be set before renderer.js loads -->
   <script>
     window.PROXY_BASE_URL = "https://noisy-rice-a298.colewx.workers.dev/proxy?url=";
   </script>
+
   <script src="renderer.js"></script>
 </body>
 </html>
