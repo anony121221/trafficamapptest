@@ -1,21 +1,34 @@
-const MAPTILER_KEY = '5djJbPb4MYTxKyRjk3bn';
+const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiY29sZTExMTEyMzUyMzQ1IiwiYSI6ImNta2RkZGNpbzBieDIzZW9yeDI4ZzNrZzgifQ.Ga80VIeiLiYHwsuKlHctZA';
+const MAPBOX_STYLE = 'mapbox://styles/mapbox/dark-v11';
+const MAPBOX_CENTER = [-98.5795, 39.8283];
 const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 let map;
+let mapLoaded = false;
+let cameraSourceReady = false;
+let pendingCameraGeojson = null;
+let pendingAlertsGeojson = null;
 let currentPlayer = null;
 let currentHls = null;
 let imageRefreshInterval = null;
 let allCameras = [];
 let filteredCameras = [];
-let markerClusterGroup;
 let selectedCameraId = null;
+let cameraById = new Map();
 
 // Weather layers
-let mrmsLayer = null;
 let mrmsActive = false;
 let alertsActive = false;
-let alertsLayerGroup = L.layerGroup();
 let alertsInterval = null;
+
+const CAMERA_SOURCE_ID = 'cameras';
+const CAMERA_CLUSTER_LAYER_ID = 'camera-clusters';
+const CAMERA_CLUSTER_COUNT_LAYER_ID = 'camera-cluster-count';
+const CAMERA_POINT_LAYER_ID = 'camera-points';
+const ALERTS_SOURCE_ID = 'alerts';
+const ALERTS_LAYER_ID = 'alerts-outline';
+const MRMS_SOURCE_ID = 'mrms';
+const MRMS_LAYER_ID = 'mrms-layer';
 
 // Track broken video URLs to avoid retrying them
 const brokenVideoUrls = new Set();
@@ -107,187 +120,272 @@ function destroyCurrentVideo() {
 }
 
 function initMap() {
-  // PITCH BLACK MAP THEME
-  map = L.map('map', { 
-    zoomControl: false,
-    minZoom: 4, 
+  mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
+  map = new mapboxgl.Map({
+    container: 'map',
+    style: MAPBOX_STYLE,
+    center: MAPBOX_CENTER,
+    zoom: 4,
+    minZoom: 4,
     maxZoom: 18,
-    maxBounds: null, 
-    maxBoundsViscosity: 0.0,
-    preferCanvas: true // Performance boost for rendering
-  }).setView([39.8283, -98.5795], 5);
-  
-  // DARK TILE LAYER
-  L.tileLayer(`https://api.maptiler.com/maps/streets-v2-dark/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`, {
-    attribution: '© MapTiler © OpenStreetMap contributors',
-    maxZoom: 18,
-    tileSize: 512,
-    zoomOffset: -1,
-    className: 'dark-tiles'
-  }).addTo(map);
-  
-  // Set pitch black background
-  map.getContainer().style.background = '#000';
-  
-  // Performance Optimization: chunkedLoading + aggressive clustering
-  markerClusterGroup = L.markerClusterGroup({
-    maxClusterRadius: 80,
-    spiderfyOnMaxZoom: true,
-    showCoverageOnHover: false,
-    disableClusteringAtZoom: 16,
-    chunkedLoading: true,
-    chunkInterval: 100,
-    chunkDelay: 25,
-    animate: false,
-    removeOutsideVisibleBounds: true,
-    zoomToBoundsOnClick: true,
-    iconCreateFunction: function(cluster) {
-      const childCount = cluster.getChildCount();
-      let size, color, fontSize;
-      
-      if (childCount < 10) {
-        size = 40;
-        color = 'rgba(74, 158, 255, 0.8)';
-        fontSize = '12px';
-      } else if (childCount < 50) {
-        size = 50;
-        color = 'rgba(41, 98, 255, 0.8)';
-        fontSize = '13px';
-      } else if (childCount < 200) {
-        size = 60;
-        color = 'rgba(26, 35, 126, 0.8)';
-        fontSize = '14px';
-      } else {
-        size = 70;
-        color = 'rgba(10, 26, 74, 0.8)';
-        fontSize = '15px';
-      }
-      
-      return L.divIcon({
-        html: `<div style="background-color: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: ${fontSize}; border: 2px solid rgba(255,255,255,0.5); box-shadow: 0 2px 8px rgba(0,0,0,0.4);">${childCount}</div>`,
-        className: 'marker-cluster-custom',
-        iconSize: L.point(size, size),
-        iconAnchor: L.point(size/2, size/2)
-      });
-    }
+    attributionControl: true
   });
-  
-  map.addLayer(markerClusterGroup);
 
-  initWeatherLayers();
+  map.on('load', () => {
+    mapLoaded = true;
+    setMapBackground();
+    initWeatherLayers();
+    initAlertsLayer();
+    initCameraLayers();
+    applyInitialLayerVisibility();
+    if (pendingCameraGeojson) updateCameraSource(pendingCameraGeojson);
+    if (pendingAlertsGeojson) updateAlertsSource(pendingAlertsGeojson);
+  });
+}
+
+function setMapBackground() {
+  const layers = map.getStyle().layers || [];
+  const bg = layers.find((layer) => layer.type === 'background');
+  if (bg && bg.id) {
+    map.setPaintProperty(bg.id, 'background-color', '#000000');
+  }
+}
+
+function emptyFeatureCollection() {
+  return { type: 'FeatureCollection', features: [] };
+}
+
+function initCameraLayers() {
+  if (!map.getSource(CAMERA_SOURCE_ID)) {
+    map.addSource(CAMERA_SOURCE_ID, {
+      type: 'geojson',
+      data: emptyFeatureCollection(),
+      cluster: true,
+      clusterRadius: 60,
+      clusterMaxZoom: 15
+    });
+  }
+
+  if (!map.getLayer(CAMERA_CLUSTER_LAYER_ID)) {
+    map.addLayer({
+      id: CAMERA_CLUSTER_LAYER_ID,
+      type: 'circle',
+      source: CAMERA_SOURCE_ID,
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': [
+          'step',
+          ['get', 'point_count'],
+          'rgba(74, 158, 255, 0.8)',
+          10, 'rgba(41, 98, 255, 0.8)',
+          50, 'rgba(26, 35, 126, 0.8)',
+          200, 'rgba(10, 26, 74, 0.8)'
+        ],
+        'circle-radius': [
+          'step',
+          ['get', 'point_count'],
+          20,
+          10, 25,
+          50, 30,
+          200, 35
+        ],
+        'circle-stroke-width': 2,
+        'circle-stroke-color': 'rgba(255,255,255,0.5)'
+      }
+    });
+  }
+
+  if (!map.getLayer(CAMERA_CLUSTER_COUNT_LAYER_ID)) {
+    map.addLayer({
+      id: CAMERA_CLUSTER_COUNT_LAYER_ID,
+      type: 'symbol',
+      source: CAMERA_SOURCE_ID,
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': '{point_count_abbreviated}',
+        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+        'text-size': 12
+      },
+      paint: {
+        'text-color': '#ffffff'
+      }
+    });
+  }
+
+  if (!map.getLayer(CAMERA_POINT_LAYER_ID)) {
+    map.addLayer({
+      id: CAMERA_POINT_LAYER_ID,
+      type: 'circle',
+      source: CAMERA_SOURCE_ID,
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': '#4a9eff',
+        'circle-radius': 6,
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#ffffff'
+      }
+    });
+  }
+
+  map.on('click', CAMERA_CLUSTER_LAYER_ID, (e) => {
+    const feature = e.features && e.features[0];
+    if (!feature) return;
+    const clusterId = feature.properties.cluster_id;
+    const source = map.getSource(CAMERA_SOURCE_ID);
+    if (!source || !source.getClusterExpansionZoom) return;
+    source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+      if (err) return;
+      map.easeTo({ center: feature.geometry.coordinates, zoom: zoom });
+    });
+  });
+
+  map.on('click', CAMERA_POINT_LAYER_ID, (e) => {
+    const feature = e.features && e.features[0];
+    if (!feature) return;
+    openCameraPopup(feature);
+  });
+
+  map.on('mouseenter', CAMERA_CLUSTER_LAYER_ID, () => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+  map.on('mouseleave', CAMERA_CLUSTER_LAYER_ID, () => {
+    map.getCanvas().style.cursor = '';
+  });
+  map.on('mouseenter', CAMERA_POINT_LAYER_ID, () => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+  map.on('mouseleave', CAMERA_POINT_LAYER_ID, () => {
+    map.getCanvas().style.cursor = '';
+  });
+
+  cameraSourceReady = true;
 }
 
 function initWeatherLayers() {
-  console.log('Initializing weather layers...');
-  mrmsLayer = L.tileLayer.wms('https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi', {
-    layers: 'nexrad-n0q-900913',
-    format: 'image/png',
-    transparent: true,
-    attribution: 'IEM NEXRAD',
-    opacity: 0.7,
-    tileSize: 512,
-    crossOrigin: true,
-    zIndex: 10
-  });
-  console.log('Weather layers initialized');
+  const wmsTiles = 'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi?service=WMS&request=GetMap&version=1.1.1&layers=nexrad-n0q-900913&styles=&format=image/png&transparent=true&srs=EPSG:3857&bbox={bbox-epsg-3857}&width=256&height=256';
+  if (!map.getSource(MRMS_SOURCE_ID)) {
+    map.addSource(MRMS_SOURCE_ID, {
+      type: 'raster',
+      tiles: [wmsTiles],
+      tileSize: 256
+    });
+  }
+  if (!map.getLayer(MRMS_LAYER_ID)) {
+    map.addLayer({
+      id: MRMS_LAYER_ID,
+      type: 'raster',
+      source: MRMS_SOURCE_ID,
+      paint: { 'raster-opacity': 0.7 }
+    });
+  }
 }
 
+function initAlertsLayer() {
+  if (!map.getSource(ALERTS_SOURCE_ID)) {
+    map.addSource(ALERTS_SOURCE_ID, { type: 'geojson', data: emptyFeatureCollection() });
+  }
+  if (!map.getLayer(ALERTS_LAYER_ID)) {
+    map.addLayer({
+      id: ALERTS_LAYER_ID,
+      type: 'line',
+      source: ALERTS_SOURCE_ID,
+      paint: {
+        'line-color': [
+          'match',
+          ['get', 'event'],
+          'Tornado Watch', '#ff0000',
+          'Severe Thunderstorm Watch', '#ffff00',
+          'Tornado Warning', '#8b0000',
+          'Severe Thunderstorm Warning', '#FFD700',
+          'Flash Flood Warning', '#006400',
+          'Special Weather Statement', '#d2b48c',
+          '#555555'
+        ],
+        'line-width': [
+          'match',
+          ['get', 'event'],
+          'Tornado Warning', 4,
+          'Severe Thunderstorm Warning', 4,
+          'Flash Flood Warning', 4,
+          2
+        ],
+        'line-opacity': 1
+      }
+    });
+  }
+
+  map.on('click', ALERTS_LAYER_ID, (e) => {
+    const feature = e.features && e.features[0];
+    if (!feature) return;
+    openAlertPopup(feature, e.lngLat);
+  });
+  map.on('mouseenter', ALERTS_LAYER_ID, () => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+  map.on('mouseleave', ALERTS_LAYER_ID, () => {
+    map.getCanvas().style.cursor = '';
+  });
+}
+
+function applyInitialLayerVisibility() {
+  const mrmsToggle = document.getElementById('mrms-toggle');
+  const alertsToggle = document.getElementById('alerts-toggle');
+  if (mrmsToggle) toggleMRMS(mrmsToggle.checked);
+  if (alertsToggle) toggleAlerts(alertsToggle.checked);
+}
+
+function setLayerVisibility(layerId, isVisible) {
+  if (!mapLoaded || !map.getLayer(layerId)) return;
+  map.setLayoutProperty(layerId, 'visibility', isVisible ? 'visible' : 'none');
+}
+
+function updateCameraSource(geojson) {
+  if (!mapLoaded || !cameraSourceReady || !map.getSource(CAMERA_SOURCE_ID)) {
+    pendingCameraGeojson = geojson;
+    return;
+  }
+  map.getSource(CAMERA_SOURCE_ID).setData(geojson);
+}
+
+function updateAlertsSource(geojson) {
+  if (!mapLoaded || !map.getSource(ALERTS_SOURCE_ID)) {
+    pendingAlertsGeojson = geojson;
+    return;
+  }
+  map.getSource(ALERTS_SOURCE_ID).setData(geojson);
+}
 // Fetch and draw alerts with specific styles
 async function fetchAndDrawAlerts() {
-    const url = "https://api.weather.gov/alerts/active?event=Tornado%20Warning,Severe%20Thunderstorm%20Warning,Flash%20Flood%20Warning,Special%20Weather%20Statement,Tornado%20Watch,Severe%20Thunderstorm%20Watch&status=actual";
-    try {
-        const response = await fetch(url, {  });
-        if(!response.ok) throw new Error("Alerts fetch failed");
-        const data = await response.json();
-        
-        alertsLayerGroup.clearLayers(); // Clear old alerts
-
-        const geoJsonLayer = L.geoJSON(data, {
-            style: function(feature) {
-                const eventType = feature.properties.event;
-                let color = "#555555";
-                let weight = 2;
-
-                // Specific colors and weights requested
-                if (eventType === "Tornado Watch") { color = "#ff0000"; weight = 2; }
-                else if (eventType === "Severe Thunderstorm Watch") { color = "#ffff00"; weight = 2; }
-                else if (eventType === "Tornado Warning") { color = "#8b0000"; weight = 4; } // Thicker
-                else if (eventType === "Severe Thunderstorm Warning") { color = "#FFD700"; weight = 4; } // Bright Yellow/Gold as requested
-                else if (eventType === "Flash Flood Warning") { color = "#006400"; weight = 4; } // Thicker (Green)
-                else if (eventType === "Special Weather Statement") { color = "#d2b48c"; weight = 2; } // Tan
-
-                return {
-                    color: color,
-                    weight: weight,
-                    opacity: 1,
-                    fillOpacity: 0 // NO FILL requested
-                };
-            },
-            onEachFeature: function (feature, layer) {
-                if (feature.properties && feature.properties.headline) {
-                    // Minimalist popup content
-                    const eventColor = layer.options.color || '#4a9eff';
-                    const expires = new Date(feature.properties.expires).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const popupContent = `
-                        <div class="alert-popup">
-                            <div class="alert-header" style="border-left: 4px solid ${eventColor}; padding-left: 10px;">
-                                <h4 class="alert-title">${feature.properties.event}</h4>
-                                <span class="alert-time">Expires: ${expires}</span>
-                            </div>
-                            <div class="alert-body">
-                                <p>${feature.properties.headline}</p>
-                            </div>
-                        </div>
-                    `;
-                    layer.bindPopup(popupContent, {
-                        className: 'custom-alert-popup',
-                        maxWidth: 320,
-                        autoPan: true
-                    });
-                }
-            }
-        });
-        
-        alertsLayerGroup.addLayer(geoJsonLayer);
-        
-        if (alertsActive && !map.hasLayer(alertsLayerGroup)) {
-            alertsLayerGroup.addTo(map);
-        }
-
-    } catch (e) {
-        console.error("Failed to load weather alerts", e);
-    }
+  const url = "https://api.weather.gov/alerts/active?event=Tornado%20Warning,Severe%20Thunderstorm%20Warning,Flash%20Flood%20Warning,Special%20Weather%20Statement,Tornado%20Watch,Severe%20Thunderstorm%20Watch&status=actual";
+  try {
+    const response = await fetch(url, { });
+    if (!response.ok) throw new Error("Alerts fetch failed");
+    const data = await response.json();
+    updateAlertsSource(data);
+  } catch (e) {
+    console.error("Failed to load weather alerts", e);
+  }
 }
 
 function toggleMRMS(checked) {
   mrmsActive = checked;
-  if (checked) {
-    if(!map.hasLayer(mrmsLayer)) map.addLayer(mrmsLayer);
-  } else {
-    if(map.hasLayer(mrmsLayer)) map.removeLayer(mrmsLayer);
-  }
+  setLayerVisibility(MRMS_LAYER_ID, checked);
 }
 
 function toggleAlerts(checked) {
-    alertsActive = checked;
-    if (checked) {
-        fetchAndDrawAlerts(); // Fetch fresh data when turned on
-        if (!map.hasLayer(alertsLayerGroup)) {
-            alertsLayerGroup.addTo(map);
-        }
-        // Set an interval to refresh alerts every 2 minutes while active
-        if (!alertsInterval) {
-            alertsInterval = setInterval(fetchAndDrawAlerts, 120000);
-        }
-    } else {
-        if (map.hasLayer(alertsLayerGroup)) {
-            alertsLayerGroup.removeFrom(map);
-        }
-        if (alertsInterval) {
-            clearInterval(alertsInterval);
-            alertsInterval = null;
-        }
+  alertsActive = checked;
+  setLayerVisibility(ALERTS_LAYER_ID, checked);
+  if (checked) {
+    fetchAndDrawAlerts(); // Fetch fresh data when turned on
+    if (!alertsInterval) {
+      alertsInterval = setInterval(fetchAndDrawAlerts, 120000);
     }
+  } else {
+    if (alertsInterval) {
+      clearInterval(alertsInterval);
+      alertsInterval = null;
+    }
+  }
 }
 
 // --- DRAGGABLE LOGIC ---
@@ -1836,63 +1934,112 @@ async function fetchMinnesotaCameras() {
 // CORE APP LOGIC
 
 function clearMarkers() {
-  markerClusterGroup.clearLayers();
+  updateCameraSource(emptyFeatureCollection());
+}
+
+function buildCameraGeojson(cameras) {
+  const features = [];
+  cameras.forEach((camera) => {
+    if (!camera.lat || !camera.lon || isNaN(camera.lat) || isNaN(camera.lon)) return;
+    features.push({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [camera.lon, camera.lat]
+      },
+      properties: {
+        id: camera.id,
+        name: camera.name,
+        provider: camera.provider,
+        state: camera.state,
+        type: camera.type
+      }
+    });
+  });
+  return { type: 'FeatureCollection', features };
+}
+
+function openCameraPopup(feature) {
+  const props = feature.properties || {};
+  const cameraId = props.id;
+  const camera = cameraById.get(cameraId) || allCameras.find((c) => c.id === cameraId);
+  if (!camera) return;
+
+  const typeText = camera.type === 'video' ? 'Video Feed' : (camera.type === 'iframe' ? 'Live Viewer' : 'Snapshot (Auto-refresh)');
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'camera-popup-wrapper';
+  wrapper.innerHTML = `
+    <h4 class="popup-title">${camera.name}</h4>
+    <div class="popup-meta">
+      <span class="provider">${camera.provider}</span> - <span class="state">${camera.state}</span>
+    </div>
+    <div class="popup-type">
+      ${typeText}
+    </div>
+    <button class="popup-button" data-camera-id="${camera.id}">View Camera -></button>
+  `;
+
+  const popup = new mapboxgl.Popup({
+    closeButton: true,
+    closeOnClick: true,
+    offset: 15,
+    className: 'custom-camera-popup'
+  })
+    .setDOMContent(wrapper)
+    .setLngLat(feature.geometry.coordinates)
+    .addTo(map);
+
+  const btn = wrapper.querySelector('.popup-button');
+  if (btn) {
+    btn.onclick = (evt) => {
+      if (evt && evt.preventDefault) evt.preventDefault();
+      if (evt && evt.stopPropagation) evt.stopPropagation();
+      popup.remove();
+      showViewer(camera);
+    };
+  }
+}
+
+function openAlertPopup(feature, lngLat) {
+  const props = feature.properties || {};
+  const eventColor = props.event === 'Tornado Watch' ? '#ff0000'
+    : props.event === 'Severe Thunderstorm Watch' ? '#ffff00'
+    : props.event === 'Tornado Warning' ? '#8b0000'
+    : props.event === 'Severe Thunderstorm Warning' ? '#FFD700'
+    : props.event === 'Flash Flood Warning' ? '#006400'
+    : props.event === 'Special Weather Statement' ? '#d2b48c'
+    : '#4a9eff';
+
+  const expires = props.expires ? new Date(props.expires).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'alert-popup';
+  wrapper.innerHTML = `
+    <div class="alert-header" style="border-left: 4px solid ${eventColor}; padding-left: 10px;">
+      <h4 class="alert-title">${props.event || 'Alert'}</h4>
+      ${expires ? `<span class="alert-time">Expires: ${expires}</span>` : ''}
+    </div>
+    <div class="alert-body">
+      <p>${props.headline || ''}</p>
+    </div>
+  `;
+
+  new mapboxgl.Popup({
+    closeButton: true,
+    closeOnClick: true,
+    offset: 10,
+    className: 'custom-alert-popup'
+  })
+    .setDOMContent(wrapper)
+    .setLngLat(lngLat || feature.geometry.coordinates)
+    .addTo(map);
 }
 
 function addCameraMarkers(cameras) {
   clearMarkers();
-  
-  const markers = cameras.map(camera => {
-    if (!camera.lat || !camera.lon || isNaN(camera.lat) || isNaN(camera.lon)) return null;
-
-    const marker = L.marker([camera.lat, camera.lon], {
-      icon: L.divIcon({
-        className: 'camera-marker',
-        iconSize: [14, 14],
-        iconAnchor: [7, 7]
-      })
-    });
-
-    const typeEmoji = camera.type === 'video' ? '📺' : (camera.type === 'iframe' ? '🌐' : '📷');
-    const typeText = camera.type === 'video' ? 'Video Feed' : (camera.type === 'iframe' ? 'Live Viewer' : 'Snapshot (Auto-refresh)');
-    
-    const popupHTML = `
-      <div class="camera-popup-wrapper">
-        <h4 class="popup-title">${camera.name}</h4>
-        <div class="popup-meta">
-          <span class="provider">${camera.provider}</span> • <span class="state">${camera.state}</span>
-        </div>
-        <div class="popup-type">
-          ${typeEmoji} ${typeText}
-        </div>
-        <button class="popup-button" data-camera-id="${camera.id}">View Camera →</button>
-      </div>
-    `;
-
-    marker.bindPopup(popupHTML, {
-      className: 'custom-camera-popup',
-      maxWidth: 280,
-      closeButton: true,
-      autoClose: true
-    });
-
-    // Wire the popup button without relying on inline handlers (more reliable in WebView).
-    marker.on('popupopen', (e) => {
-      const popupEl = e.popup && e.popup.getElement ? e.popup.getElement() : null;
-      if (!popupEl) return;
-      const btn = popupEl.querySelector('.popup-button');
-      if (!btn) return;
-      btn.onclick = (evt) => {
-        if (evt && evt.preventDefault) evt.preventDefault();
-        if (evt && evt.stopPropagation) evt.stopPropagation();
-        showViewer(camera);
-      };
-    });
-    
-    return marker;
-  }).filter(m => m !== null);
-
-  markerClusterGroup.addLayers(markers);
+  const geojson = buildCameraGeojson(cameras);
+  updateCameraSource(geojson);
 }
 
 function updateCameraList(cameras) {
@@ -1975,7 +2122,9 @@ const proxifyMedia = (u) => {
       iframe.style.border = 'none';
       content.appendChild(iframe);
       
-      map.panTo([camera.lat, camera.lon]);
+      if (map && map.easeTo) {
+        map.easeTo({ center: [camera.lon, camera.lat], duration: 800 });
+      }
       return; // Exit early since we are using iframe
   }
 
@@ -2175,7 +2324,9 @@ const proxifyMedia = (u) => {
   } else {
     content.innerHTML = '<div style="padding:20px; text-align:center; color:#fff;">No valid stream or image available</div>';
   }
-  map.panTo([camera.lat, camera.lon]);
+  if (map && map.easeTo) {
+    map.easeTo({ center: [camera.lon, camera.lat], duration: 800 });
+  }
 }
 
 window.showCamera = (id) => {
@@ -2294,24 +2445,29 @@ async function loadAllCameras() {
   console.log(`Loaded ${allCameras.length} total cameras.`);
   document.getElementById('total-count').textContent = allCameras.length;
   document.getElementById('cameras-count').textContent = allCameras.length;
+
+  cameraById = new Map();
+  allCameras.forEach((camera) => {
+    cameraById.set(camera.id, camera);
+  });
   
   const searchTerm = document.getElementById('search-input').value;
   const stateFilter = document.getElementById('state-filter').value;
   filterCameras(searchTerm, stateFilter);
 }
 
-// City Search using MapTiler Geocoding API
+// City Search using Mapbox Geocoding API
 let citySearchTimeout = null;
 
 async function searchCity(query) {
   if (!query || query.length < 2) return [];
   try {
-    // Use MapTiler geocoding API (we already have a key)
-    const url = `https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json?key=${MAPTILER_KEY}&country=us&types=place,locality,municipality&limit=6`;
+    // Use Mapbox geocoding API
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=US&types=place,locality,municipality&limit=6`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();
-    // Convert MapTiler format to match our display format
+    // Convert Mapbox format to match our display format
     return (data.features || []).map(f => ({
       display_name: f.place_name || f.text,
       lat: f.center[1],
@@ -2362,7 +2518,9 @@ function displayCityResults(results) {
     item.onclick = () => {
       const lat = parseFloat(place.lat);
       const lon = parseFloat(place.lon);
-      map.flyTo([lat, lon], 12, { duration: 1.5 });
+      if (map && map.flyTo) {
+        map.flyTo({ center: [lon, lat], zoom: 12, duration: 1500 });
+      }
       container.classList.add('hidden');
       document.getElementById('city-search-input').value = '';
       document.getElementById('city-search-input').classList.add('hidden');
