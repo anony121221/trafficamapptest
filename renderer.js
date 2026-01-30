@@ -25,6 +25,7 @@ const CAMERA_SOURCE_ID = 'cameras';
 const CAMERA_CLUSTER_LAYER_ID = 'camera-clusters';
 const CAMERA_CLUSTER_COUNT_LAYER_ID = 'camera-cluster-count';
 const CAMERA_POINT_LAYER_ID = 'camera-points';
+const CAMERA_ICON_ID = 'camera-pin';
 const ALERTS_SOURCE_ID = 'alerts';
 const ALERTS_LAYER_ID = 'alerts-outline';
 const MRMS_SOURCE_ID = 'mrms';
@@ -159,8 +160,55 @@ function emptyFeatureCollection() {
 }
 
 
+function buildCameraIconImage() {
+  const size = 32;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // Pin body
+  ctx.beginPath();
+  ctx.moveTo(16, 30);
+  ctx.lineTo(8, 16);
+  ctx.lineTo(24, 16);
+  ctx.closePath();
+  ctx.fillStyle = '#4a9eff';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  // Pin head
+  ctx.beginPath();
+  ctx.arc(16, 12, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#4a9eff';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  // Inner dot
+  ctx.beginPath();
+  ctx.arc(16, 12, 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a1a2a';
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  const imageData = ctx.getImageData(0, 0, size, size);
+  return { width: size, height: size, data: imageData.data };
+}
+
 function ensureCameraIcon() {
-  // No-op: use Mapbox built-in sprite icon.
+  if (!map || !map.addImage || map.hasImage(CAMERA_ICON_ID)) return;
+  const image = buildCameraIconImage();
+  if (!image) return;
+  map.addImage(CAMERA_ICON_ID, image);
 }
 
 function initCameraLayers() {
@@ -180,15 +228,10 @@ function initCameraLayers() {
       source: CAMERA_SOURCE_ID,
       filter: ['!', ['has', 'point_count']],
       layout: {
-        'icon-image': 'marker-15',
-        'icon-size': 1.2,
+        'icon-image': CAMERA_ICON_ID,
+        'icon-size': 0.85,
         'icon-allow-overlap': true,
         'icon-anchor': 'bottom'
-      },
-      paint: {
-        'icon-color': '#4a9eff',
-        'icon-halo-color': '#ffffff',
-        'icon-halo-width': 1
       }
     });
   }
