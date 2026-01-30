@@ -128,7 +128,6 @@ function initMap() {
     container: 'map',
     style: MAPBOX_STYLE,
     center: MAPBOX_CENTER,
-    projection: 'globe',
     zoom: 4,
     minZoom: 4,
     maxZoom: 18,
