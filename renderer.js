@@ -207,67 +207,18 @@ function createCameraPinCanvas() {
 function ensureCameraIcon() {
   if (!map || !map.addImage || map.hasImage(CAMERA_ICON_ID)) return;
   const canvas = createCameraPinCanvas();
-  map.addImage(CAMERA_ICON_ID, canvas, { pixelRatio: 2 });
+  map.addImage(CAMERA_ICON_ID, canvas);
 }
 
 function initCameraLayers() {
   if (!map.getSource(CAMERA_SOURCE_ID)) {
     map.addSource(CAMERA_SOURCE_ID, {
       type: 'geojson',
-      data: emptyFeatureCollection(),
-      cluster: true,
-      clusterRadius: 35,
-      clusterMaxZoom: 12
+      data: emptyFeatureCollection()
     });
   }
 
   ensureCameraIcon();
-
-  if (!map.getLayer(CAMERA_CLUSTER_LAYER_ID)) {
-    map.addLayer({
-      id: CAMERA_CLUSTER_LAYER_ID,
-      type: 'circle',
-      source: CAMERA_SOURCE_ID,
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': [
-          'step',
-          ['get', 'point_count'],
-          'rgba(74, 158, 255, 0.8)',
-          10, 'rgba(41, 98, 255, 0.8)',
-          50, 'rgba(26, 35, 126, 0.8)',
-          200, 'rgba(10, 26, 74, 0.8)'
-        ],
-        'circle-radius': [
-          'step',
-          ['get', 'point_count'],
-          16,
-          10, 20,
-          50, 24,
-          200, 28
-        ],
-        'circle-stroke-width': 1,
-        'circle-stroke-color': 'rgba(255,255,255,0.5)'
-      }
-    });
-  }
-
-  if (!map.getLayer(CAMERA_CLUSTER_COUNT_LAYER_ID)) {
-    map.addLayer({
-      id: CAMERA_CLUSTER_COUNT_LAYER_ID,
-      type: 'symbol',
-      source: CAMERA_SOURCE_ID,
-      filter: ['has', 'point_count'],
-      layout: {
-        'text-field': '{point_count_abbreviated}',
-        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-        'text-size': 12
-      },
-      paint: {
-        'text-color': '#ffffff'
-      }
-    });
-  }
 
   if (!map.getLayer(CAMERA_POINT_LAYER_ID)) {
     map.addLayer({
@@ -284,29 +235,10 @@ function initCameraLayers() {
     });
   }
 
-  map.on('click', CAMERA_CLUSTER_LAYER_ID, (e) => {
-    const feature = e.features && e.features[0];
-    if (!feature) return;
-    const clusterId = feature.properties.cluster_id;
-    const source = map.getSource(CAMERA_SOURCE_ID);
-    if (!source || !source.getClusterExpansionZoom) return;
-    source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-      if (err) return;
-      map.easeTo({ center: feature.geometry.coordinates, zoom: zoom });
-    });
-  });
-
   map.on('click', CAMERA_POINT_LAYER_ID, (e) => {
     const feature = e.features && e.features[0];
     if (!feature) return;
     openCameraPopup(feature);
-  });
-
-  map.on('mouseenter', CAMERA_CLUSTER_LAYER_ID, () => {
-    map.getCanvas().style.cursor = 'pointer';
-  });
-  map.on('mouseleave', CAMERA_CLUSTER_LAYER_ID, () => {
-    map.getCanvas().style.cursor = '';
   });
   map.on('mouseenter', CAMERA_POINT_LAYER_ID, () => {
     map.getCanvas().style.cursor = 'pointer';
