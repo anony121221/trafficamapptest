@@ -162,52 +162,37 @@ function emptyFeatureCollection() {
   return { type: 'FeatureCollection', features: [] };
 }
 
-function createCameraPinCanvas() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 32;
-  canvas.height = 32;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return canvas;
+let cameraIconLoading = false;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function getCameraPinSvg() {
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+      <path d="M16 30 L8 16 L24 16 Z" fill="#4a9eff" stroke="#ffffff" stroke-width="2"/>
+      <circle cx="16" cy="12" r="7" fill="#4a9eff" stroke="#ffffff" stroke-width="2"/>
+      <circle cx="16" cy="12" r="3" fill="#0a1a2a" stroke="#ffffff" stroke-width="1"/>
+    </svg>
+  `.trim();
+}
 
-  // Pin body (triangle)
-  ctx.beginPath();
-  ctx.moveTo(16, 30);
-  ctx.lineTo(8, 16);
-  ctx.lineTo(24, 16);
-  ctx.closePath();
-  ctx.fillStyle = '#4a9eff';
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#ffffff';
-  ctx.stroke();
-
-  // Pin head (circle)
-  ctx.beginPath();
-  ctx.arc(16, 12, 7, 0, Math.PI * 2);
-  ctx.fillStyle = '#4a9eff';
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#ffffff';
-  ctx.stroke();
-
-  // Inner dot
-  ctx.beginPath();
-  ctx.arc(16, 12, 3, 0, Math.PI * 2);
-  ctx.fillStyle = '#0a1a2a';
-  ctx.fill();
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = '#ffffff';
-  ctx.stroke();
-
-  return canvas;
+function getCameraPinDataUrl() {
+  const svg = getCameraPinSvg();
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 function ensureCameraIcon() {
-  if (!map || !map.addImage || map.hasImage(CAMERA_ICON_ID)) return;
-  const canvas = createCameraPinCanvas();
-  map.addImage(CAMERA_ICON_ID, canvas);
+  if (!map || !map.addImage || map.hasImage(CAMERA_ICON_ID) || cameraIconLoading) return;
+  cameraIconLoading = true;
+  const url = getCameraPinDataUrl();
+  map.loadImage(url, (err, image) => {
+    cameraIconLoading = false;
+    if (err || !image) {
+      console.error('Camera icon load failed', err);
+      return;
+    }
+    if (!map.hasImage(CAMERA_ICON_ID)) {
+      map.addImage(CAMERA_ICON_ID, image);
+    }
+  });
 }
 
 function initCameraLayers() {
