@@ -2438,6 +2438,11 @@ async function loadAllCameras() {
   allCameras.forEach((camera) => {
     cameraById.set(camera.id, camera);
   });
+
+  map.on('style.load', () => {
+    if (map.setProjection) map.setProjection('mercator');
+    if (map.setFog) map.setFog(null);
+  });
   
   const searchTerm = document.getElementById('search-input').value;
   const stateFilter = document.getElementById('state-filter').value;
