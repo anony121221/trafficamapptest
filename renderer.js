@@ -131,10 +131,13 @@ function initMap() {
     zoom: 4,
     minZoom: 4,
     maxZoom: 18,
+    projection: 'mercator',
     attributionControl: true
   });
 
   map.on('load', () => {
+    if (map.setProjection) map.setProjection('mercator');
+    if (map.setFog) map.setFog(null);
     mapLoaded = true;
     setMapBackground();
     initWeatherLayers();
