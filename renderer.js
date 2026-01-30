@@ -25,6 +25,7 @@ const CAMERA_SOURCE_ID = 'cameras';
 const CAMERA_CLUSTER_LAYER_ID = 'camera-clusters';
 const CAMERA_CLUSTER_COUNT_LAYER_ID = 'camera-cluster-count';
 const CAMERA_POINT_LAYER_ID = 'camera-points';
+const CAMERA_ICON_ID = 'camera-pin';
 const ALERTS_SOURCE_ID = 'alerts';
 const ALERTS_LAYER_ID = 'alerts-outline';
 const MRMS_SOURCE_ID = 'mrms';
@@ -161,16 +162,66 @@ function emptyFeatureCollection() {
   return { type: 'FeatureCollection', features: [] };
 }
 
+function createCameraPinCanvas() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Pin body (triangle)
+  ctx.beginPath();
+  ctx.moveTo(16, 30);
+  ctx.lineTo(8, 16);
+  ctx.lineTo(24, 16);
+  ctx.closePath();
+  ctx.fillStyle = '#4a9eff';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  // Pin head (circle)
+  ctx.beginPath();
+  ctx.arc(16, 12, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#4a9eff';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  // Inner dot
+  ctx.beginPath();
+  ctx.arc(16, 12, 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a1a2a';
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  return canvas;
+}
+
+function ensureCameraIcon() {
+  if (!map || !map.addImage || map.hasImage(CAMERA_ICON_ID)) return;
+  const canvas = createCameraPinCanvas();
+  map.addImage(CAMERA_ICON_ID, canvas, { pixelRatio: 2 });
+}
+
 function initCameraLayers() {
   if (!map.getSource(CAMERA_SOURCE_ID)) {
     map.addSource(CAMERA_SOURCE_ID, {
       type: 'geojson',
       data: emptyFeatureCollection(),
       cluster: true,
-      clusterRadius: 60,
-      clusterMaxZoom: 15
+      clusterRadius: 35,
+      clusterMaxZoom: 12
     });
   }
+
+  ensureCameraIcon();
 
   if (!map.getLayer(CAMERA_CLUSTER_LAYER_ID)) {
     map.addLayer({
@@ -190,12 +241,12 @@ function initCameraLayers() {
         'circle-radius': [
           'step',
           ['get', 'point_count'],
-          20,
-          10, 25,
-          50, 30,
-          200, 35
+          16,
+          10, 20,
+          50, 24,
+          200, 28
         ],
-        'circle-stroke-width': 2,
+        'circle-stroke-width': 1,
         'circle-stroke-color': 'rgba(255,255,255,0.5)'
       }
     });
@@ -221,14 +272,14 @@ function initCameraLayers() {
   if (!map.getLayer(CAMERA_POINT_LAYER_ID)) {
     map.addLayer({
       id: CAMERA_POINT_LAYER_ID,
-      type: 'circle',
+      type: 'symbol',
       source: CAMERA_SOURCE_ID,
       filter: ['!', ['has', 'point_count']],
-      paint: {
-        'circle-color': '#4a9eff',
-        'circle-radius': 6,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#ffffff'
+      layout: {
+        'icon-image': CAMERA_ICON_ID,
+        'icon-size': 0.8,
+        'icon-allow-overlap': true,
+        'icon-anchor': 'bottom'
       }
     });
   }
