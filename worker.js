@@ -13,6 +13,7 @@
 const ALLOWED_HOSTS = [
   // Camera JSON feeds throwing CORS in browsers:
   "oktraffic.org",
+  "stream.oktraffic.org",
   "traveler.modot.org",
   "sd.cdn.iteris-atis.com",
   "www.nvroads.com",
@@ -83,6 +84,18 @@ export default {
     if (contentType) upstreamHeaders.set("Content-Type", contentType);
     const auth = request.headers.get("Authorization");
     if (auth) upstreamHeaders.set("Authorization", auth);
+    if (!upstreamHeaders.get("User-Agent")) {
+      upstreamHeaders.set(
+        "User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+      );
+    }
+    if (!upstreamHeaders.get("Referer")) {
+      upstreamHeaders.set("Referer", `${targetUrl.origin}/`);
+    }
+    if (!upstreamHeaders.get("Origin")) {
+      upstreamHeaders.set("Origin", targetUrl.origin);
+    }
 
     // Cache key
     const isCacheable = CACHE_TTL_SECONDS > 0 && (request.method === "GET" || request.method === "HEAD");
