@@ -223,6 +223,7 @@ body {
   border-color: #4a9eff;
 }
 
+.filter-section select,
 #state-filter {
   width: 100%;
   padding: 10px 36px 10px 12px;
@@ -232,6 +233,7 @@ body {
   color: #fff;
   font-size: 14px;
   cursor: pointer;
+  box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -247,12 +249,14 @@ body {
   background-repeat: no-repeat;
 }
 
+.filter-section select:focus,
 #state-filter:focus {
   outline: none;
   border-color: #4a9eff;
   box-shadow: 0 0 0 3px rgba(74,158,255,0.2);
 }
 
+.filter-section select option,
 #state-filter option {
   background: #0a0a0a;
   color: #fff;
