@@ -25,7 +25,6 @@ const CAMERA_SOURCE_ID = 'cameras';
 const CAMERA_CLUSTER_LAYER_ID = 'camera-clusters';
 const CAMERA_CLUSTER_COUNT_LAYER_ID = 'camera-cluster-count';
 const CAMERA_POINT_LAYER_ID = 'camera-points';
-const CAMERA_ICON_ID = 'camera-pin';
 const ALERTS_SOURCE_ID = 'alerts';
 const ALERTS_LAYER_ID = 'alerts-outline';
 const MRMS_SOURCE_ID = 'mrms';
@@ -37,9 +36,6 @@ const brokenVideoUrls = new Set();
 // For deduplication - key is "lat,lon"
 const cameraLocationMap = new Map();
 
-// DFW 511 Token Storage
-let dfwToken = null;
-let dfwTokenExpires = 0;
 
 const stateMap = {
   'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
@@ -162,37 +158,9 @@ function emptyFeatureCollection() {
   return { type: 'FeatureCollection', features: [] };
 }
 
-let cameraIconLoading = false;
-
-function getCameraPinSvg() {
-  return `
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-      <path d="M16 30 L8 16 L24 16 Z" fill="#4a9eff" stroke="#ffffff" stroke-width="2"/>
-      <circle cx="16" cy="12" r="7" fill="#4a9eff" stroke="#ffffff" stroke-width="2"/>
-      <circle cx="16" cy="12" r="3" fill="#0a1a2a" stroke="#ffffff" stroke-width="1"/>
-    </svg>
-  `.trim();
-}
-
-function getCameraPinDataUrl() {
-  const svg = getCameraPinSvg();
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
 
 function ensureCameraIcon() {
-  if (!map || !map.addImage || map.hasImage(CAMERA_ICON_ID) || cameraIconLoading) return;
-  cameraIconLoading = true;
-  const url = getCameraPinDataUrl();
-  map.loadImage(url, (err, image) => {
-    cameraIconLoading = false;
-    if (err || !image) {
-      console.error('Camera icon load failed', err);
-      return;
-    }
-    if (!map.hasImage(CAMERA_ICON_ID)) {
-      map.addImage(CAMERA_ICON_ID, image);
-    }
-  });
+  // No-op: use Mapbox built-in sprite icon.
 }
 
 function initCameraLayers() {
@@ -212,10 +180,15 @@ function initCameraLayers() {
       source: CAMERA_SOURCE_ID,
       filter: ['!', ['has', 'point_count']],
       layout: {
-        'icon-image': CAMERA_ICON_ID,
-        'icon-size': 0.8,
+        'icon-image': 'marker-15',
+        'icon-size': 1.2,
         'icon-allow-overlap': true,
         'icon-anchor': 'bottom'
+      },
+      paint: {
+        'icon-color': '#4a9eff',
+        'icon-halo-color': '#ffffff',
+        'icon-halo-width': 1
       }
     });
   }
@@ -1266,72 +1239,7 @@ async function fetchNevadaCameras() {
   } catch (e) { console.warn('NV Error', e); return []; }
 }
 
-async function getDFWToken() {
-  if (dfwToken && Date.now() < dfwTokenExpires) {
-    return dfwToken;
-  }
-  const postData = {
-    client_id: 'EWImaYP6EwNPNlAQtvSuFZe3r1VPUcqa',
-    client_secret: 'G5V6rA8bjFafS0kYyE6GJFR3qm9wSOYZhZw_GFUQAobT6OCq6EnO4NjPVU5H5TmW',
-    audience: '511dfw-dapi',
-    grant_type: 'client_credentials'
-  };
-  try {
-    const data = await fetchJsonWithProxy('https://dotstream.us.auth0.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(postData)
-    });
-    if (!data || !data.access_token) throw new Error('Missing access_token');
-    dfwToken = data.access_token;
-    dfwTokenExpires = Date.now() + (data.expires_in * 1000) - 60000;
-    return dfwToken;
-  } catch (e) {
-    console.error('DFW Auth Failed', e);
-    return null;
-  }
-}
 
-async function fetchDFWCameras() {
-  try {
-    const token = await getDFWToken();
-    if (!token) return [];
-    const url = 'https://511dfw.org/dapi/v1/cameras'; 
-    const data = await fetchJsonWithProxy(url, { headers: { 'Authorization': `Bearer ${token}`}});
-    const list = Array.isArray(data) ? data : (data.cameras || []);
-    const cameras = [];
-    list.forEach(cam => {
-      let lat, lon;
-      if (cam.location) {
-        lat = parseFloat(cam.location.latitude);
-        lon = parseFloat(cam.location.longitude);
-      } else {
-        lat = parseFloat(cam.latitude);
-        lon = parseFloat(cam.longitude);
-      }
-      if (!lat || !lon) return;
-      const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
-      if (cameraLocationMap.has(key)) return;
-      const vid = cam.videoUrl || cam.streamUrl || (cam.views && cam.views[0]?.videoUrl);
-      const img = cam.imageUrl || cam.snapshotUrl || (cam.views && cam.views[0]?.imageUrl);
-      if (!vid && !img) return;
-      const camera = {
-        id: `TX-DFW-${cam.id}-${Math.random().toString(36).substr(2, 9)}`,
-        name: cam.name || cam.description || 'DFW Camera',
-        lat: lat,
-        lon: lon,
-        videoUrl: isValidUrl(vid) ? vid : null,
-        imageUrl: img,
-        type: (vid && isValidUrl(vid)) ? 'video' : 'image',
-        state: 'TX',
-        provider: 'DFW 511'
-      };
-      cameras.push(camera);
-      cameraLocationMap.set(key, camera);
-    });
-    return cameras;
-  } catch (e) { console.warn('DFW Fetch Error:', e.message); return []; }
-}
 
 async function fetchOklahomaCameras() {
   try {
@@ -2370,7 +2278,6 @@ async function loadAllCameras() {
     "New Mexico": fetchNewMexicoCameras(),
     "Utah": fetchUtahCameras(),
     "Nevada": fetchNevadaCameras(),
-    "DFW": fetchDFWCameras(),
     "North Carolina": fetchNorthCarolinaCameras(),
     "South Carolina": fetchSouthCarolinaCameras(),
     "Tennessee": fetchTennesseeCameras(),
