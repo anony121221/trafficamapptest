@@ -1,9 +1,3 @@
-// Web build note:
-// - Set window.PROXY_BASE_URL (string) before renderer.js loads if you use a CORS/HLS proxy.
-//   Example in index.html:
-//     <script>window.PROXY_BASE_URL='https://YOUR-WORKER.your-subdomain.workers.dev/proxy?url=';</script>
-//
-const USER_AGENT = 'TrafficCameraMap/1.0 (contact@example.com)';
 const MAPTILER_KEY = '5djJbPb4MYTxKyRjk3bn';
 const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -87,7 +81,11 @@ async function getProxyBaseUrl() {
 
 async function fetchJsonWithProxy(url, options = {}) {
   const proxy = await getProxyBaseUrl();
-  const targetUrl = proxy ? `${proxy}${encodeURIComponent(url)}` : url;
+if (!proxy && (typeof window !== 'undefined') && !((window.__TAURI__ && (window.__TAURI__.invoke || (window.__TAURI__.tauri && window.__TAURI__.tauri.invoke) || (window.__TAURI__.core && window.__TAURI__.core.invoke)))) ) {
+  // In a plain browser build, you MUST set window.PROXY_BASE_URL or some states will fail due to CORS.
+  console.warn('[Proxy] No PROXY_BASE_URL set. Some camera feeds will fail due to CORS.');
+}
+const targetUrl = proxy ? `${proxy}${encodeURIComponent(url)}` : url;
   const response = await fetch(targetUrl, options);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
@@ -198,7 +196,7 @@ function initWeatherLayers() {
 async function fetchAndDrawAlerts() {
     const url = "https://api.weather.gov/alerts/active?event=Tornado%20Warning,Severe%20Thunderstorm%20Warning,Flash%20Flood%20Warning,Special%20Weather%20Statement,Tornado%20Watch,Severe%20Thunderstorm%20Watch&status=actual";
     try {
-        const response = await fetch(url, { headers: {} });
+        const response = await fetch(url, {  });
         if(!response.ok) throw new Error("Alerts fetch failed");
         const data = await response.json();
         
@@ -334,7 +332,7 @@ function makeDraggable(element, handle) {
 async function fetchConnecticutCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Connecticut/ct.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`CT HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -382,7 +380,7 @@ async function fetchConnecticutCameras() {
 async function fetchFloridaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/main/Florida/florida.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`FL HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -427,7 +425,7 @@ async function fetchFloridaCameras() {
 async function fetchMaineCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Maine/maine.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`ME HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -472,7 +470,7 @@ async function fetchMaineCameras() {
 async function fetchMassachusettsCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Massachusetts/Massachusetts.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`MA HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -517,7 +515,7 @@ async function fetchMassachusettsCameras() {
 async function fetchIdahoCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Idaho/idaho.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`ID HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -562,7 +560,7 @@ async function fetchIdahoCameras() {
 async function fetchMontanaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Montana/montana.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`MT HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -607,7 +605,7 @@ async function fetchMontanaCameras() {
 async function fetchNewHampshireCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/New%20Hampshire/nh.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`NH HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -652,7 +650,7 @@ async function fetchNewHampshireCameras() {
 async function fetchNewYorkCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/New%20York/newyork.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`NY HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -699,7 +697,7 @@ async function fetchNewYorkCameras() {
 async function fetchOregonCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Oregon/oregon.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`OR HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -744,7 +742,7 @@ async function fetchOregonCameras() {
 async function fetchPennsylvaniaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Pennsylvania/penndot.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`PA HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -789,7 +787,7 @@ async function fetchPennsylvaniaCameras() {
 async function fetchRhodeIslandCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Rhode%20Island/ri.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`RI HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -836,7 +834,7 @@ async function fetchRhodeIslandCameras() {
 async function fetchVermontCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Vermont/vermont.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`VT HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -881,7 +879,7 @@ async function fetchVermontCameras() {
 async function fetchWashingtonCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Washington/washington.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`WA HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -926,7 +924,7 @@ async function fetchWashingtonCameras() {
 async function fetchNebraskaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Nebraska/nebraska.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`NE HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -981,7 +979,7 @@ async function fetchNebraskaCameras() {
 async function fetchNorthCarolinaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/North%20Carolina/nc.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`NC HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -1018,7 +1016,7 @@ async function fetchNorthCarolinaCameras() {
 async function fetchSouthCarolinaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/South%20Carolina/sc.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`SC HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -1060,7 +1058,7 @@ async function fetchSouthCarolinaCameras() {
 async function fetchTennesseeCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Tennessee/tennessee.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`TN HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -1103,9 +1101,7 @@ async function fetchUtahCameras() {
   const apiKey = 'e604011844504d6bb17c5a68339b2a41';
   const url = `https://www.udottraffic.utah.gov/api/v2/get/cameras?key=${apiKey}&format=json`;
   try {
-    const response = await fetch(url, { headers: {}});
-    if (!response.ok) throw new Error(`UT HTTP ${response.status}`);
-    const data = await response.json();
+    const data = await fetchJsonWithProxy(url);
     let list = [];
     if (Array.isArray(data)) list = data;
     else if (data && Array.isArray(data.cameras)) list = data.cameras;
@@ -1155,9 +1151,7 @@ async function fetchNevadaCameras() {
   const apiKey = 'd8ed5f99532a4fefa897533d33fcc235';
   const url = `https://www.nvroads.com/api/v2/get/cameras?key=${apiKey}&format=json`;
   try {
-    const response = await fetch(url, { headers: {}});
-    if (!response.ok) throw new Error(`NV HTTP ${response.status}`);
-    const data = await response.json();
+    const data = await fetchJsonWithProxy(url);
     let list = [];
     if (Array.isArray(data)) list = data;
     else if (data && Array.isArray(data.cameras)) list = data.cameras;
@@ -1200,17 +1194,89 @@ async function fetchNevadaCameras() {
   } catch (e) { console.warn('NV Error', e); return []; }
 }
 
-// --- DFW 511 (disabled in pure web build) ---
-// Your original Electron/Tauri build includes an Auth0 client_secret and uses Node's https module.
-// Do NOT ship that to GitHub Pages. If you want DFW on the web, move it behind a serverless proxy
-// (Cloudflare Worker / Pages Function) and call that endpoint from here.
 function getDFWToken() {
-  throw new Error('DFW 511 is disabled in the web build (requires server-side proxy for secrets).');
+  return new Promise((resolve, reject) => {
+    if (dfwToken && Date.now() < dfwTokenExpires) {
+      resolve(dfwToken);
+      return;
+    }
+    const postData = JSON.stringify({
+      client_id: 'EWImaYP6EwNPNlAQtvSuFZe3r1VPUcqa',
+      client_secret: 'G5V6rA8bjFafS0kYyE6GJFR3qm9wSOYZhZw_GFUQAobT6OCq6EnO4NjPVU5H5TmW',
+      audience: '511dfw-dapi',
+      grant_type: 'client_credentials'
+    });
+    const options = {
+      hostname: 'dotstream.us.auth0.com',
+      port: 443,
+      path: '/oauth/token',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': postData.length }
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const parsed = JSON.parse(data);
+            dfwToken = parsed.access_token;
+            dfwTokenExpires = Date.now() + (parsed.expires_in * 1000) - 60000;
+            resolve(dfwToken);
+          } catch (e) { reject(new Error('Failed to parse DFW token response')); }
+        } else {
+          console.error("DFW Auth Failed. Server response:", data);
+          reject(new Error(`DFW Token Error: ${res.statusCode} ${data}`));
+        }
+      });
+    });
+    req.on('error', (e) => reject(e));
+    req.write(postData);
+    req.end();
+  });
 }
 
 async function fetchDFWCameras() {
-  console.warn('DFW 511 disabled in web build.');
-  return [];
+  try {
+    const token = await getDFWToken();
+    if (!token) return [];
+    const url = 'https://511dfw.org/dapi/v1/cameras'; 
+    const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}`}});
+    if (!response.ok) throw new Error(`DFW HTTP ${response.status}`);
+    const data = await response.json();
+    const list = Array.isArray(data) ? data : (data.cameras || []);
+    const cameras = [];
+    list.forEach(cam => {
+      let lat, lon;
+      if (cam.location) {
+        lat = parseFloat(cam.location.latitude);
+        lon = parseFloat(cam.location.longitude);
+      } else {
+        lat = parseFloat(cam.latitude);
+        lon = parseFloat(cam.longitude);
+      }
+      if (!lat || !lon) return;
+      const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+      if (cameraLocationMap.has(key)) return;
+      const vid = cam.videoUrl || cam.streamUrl || (cam.views && cam.views[0]?.videoUrl);
+      const img = cam.imageUrl || cam.snapshotUrl || (cam.views && cam.views[0]?.imageUrl);
+      if (!vid && !img) return;
+      const camera = {
+        id: `TX-DFW-${cam.id}-${Math.random().toString(36).substr(2, 9)}`,
+        name: cam.name || cam.description || 'DFW Camera',
+        lat: lat,
+        lon: lon,
+        videoUrl: isValidUrl(vid) ? vid : null,
+        imageUrl: img,
+        type: (vid && isValidUrl(vid)) ? 'video' : 'image',
+        state: 'TX',
+        provider: 'DFW 511'
+      };
+      cameras.push(camera);
+      cameraLocationMap.set(key, camera);
+    });
+    return cameras;
+  } catch (e) { console.warn('DFW Fetch Error:', e.message); return []; }
 }
 
 async function fetchOklahomaCameras() {
@@ -1222,7 +1288,7 @@ async function fetchOklahomaCameras() {
       ]
     };
     const url = `https://oktraffic.org/api/CameraPoles?filter=${encodeURIComponent(JSON.stringify(filter))}`;
-    const data = await fetchJsonWithProxy(url, { headers: {}});
+    const data = await fetchJsonWithProxy(url, { });
     const cameras = [];
     data.forEach(pole => {
       if (pole.mapCameras?.length > 0) {
@@ -1257,7 +1323,7 @@ async function fetchOklahomaCameras() {
 
 async function fetchKansasCameras() {
   try {
-    const response = await fetch('https://kstg.carsprogram.org/cameras_v1/api/cameras', { headers: {}});
+    const response = await fetch('https://kstg.carsprogram.org/cameras_v1/api/cameras', { });
     if (!response.ok) throw new Error('KS API Failed');
     const data = await response.json();
     return data.filter(c => c.location?.latitude && c.location?.longitude && c.views?.[0]?.url).map(c => {
@@ -1323,7 +1389,7 @@ async function fetchIowaCameras() {
 async function fetchIllinoisCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Illinois/Illinois.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`IL HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -1364,7 +1430,7 @@ async function fetchIllinoisCameras() {
 async function fetchLouisianaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Louisiana/louisiana.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`LA HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -1398,7 +1464,7 @@ async function fetchLouisianaCameras() {
 async function fetchMississippiCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Mississippi/mississippi.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`MS HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -1444,7 +1510,7 @@ async function fetchTexasCameras() {
   const houstonUrl = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Texas/Houston.geojson';
   const cameras = [];
   try {
-    const res = await fetch(`${austinUrl}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${austinUrl}?v=${Date.now()}`, { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       if (data?.features?.length) {
@@ -1474,7 +1540,7 @@ async function fetchTexasCameras() {
     }
   } catch (e) { console.error('TX Austin Error', e); }
   try {
-    const res = await fetch(`${houstonUrl}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${houstonUrl}?v=${Date.now()}`, { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       if (data?.features?.length) {
@@ -1510,9 +1576,7 @@ async function fetchTexasCameras() {
 async function fetchSouthDakotaCameras() {
   const url = 'https://sd.cdn.iteris-atis.com/geojson/icons/metadata/icons.cameras.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
-    if (!res.ok) throw new Error(`SD HTTP ${res.status}`);
-    const data = await res.json();
+    const data = await fetchJsonWithProxy(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!data?.features?.length) return [];
     const cameras = [];
     data.features.forEach((f, idx) => {
@@ -1547,9 +1611,7 @@ async function fetchSouthDakotaCameras() {
 async function fetchAlabamaCameras() {
   const url = 'https://api.algotraffic.com/v3.0/Cameras';
   try {
-    const res = await fetch(url, { headers: {}, cache: 'no-store' });
-    if (!res.ok) throw new Error(`AL HTTP ${res.status}`);
-    const data = await res.json();
+    const data = await fetchJsonWithProxy(url, { cache: 'no-store' });
     if (!Array.isArray(data)) return [];
     const cameras = [];
     data.forEach(cam => {
@@ -1582,9 +1644,7 @@ async function fetchAlabamaCameras() {
 async function fetchMissouriCameras() {
   const url = 'https://traveler.modot.org/timconfig/feed/desktop/StreamingCams2.json';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
-    if (!res.ok) throw new Error(`MO HTTP ${res.status}`);
-    const data = await res.json();
+    const data = await fetchJsonWithProxy(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!Array.isArray(data)) return [];
     const cameras = [];
     data.forEach((cam, idx) => {
@@ -1614,7 +1674,7 @@ async function fetchMissouriCameras() {
 async function fetchVirginiaCameras() {
   const url = 'https://511.vdot.virginia.gov/services/map/layers/map/cams';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`VA HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -1648,7 +1708,7 @@ async function fetchVirginiaCameras() {
 async function fetchNewMexicoCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/New%20Mexico/newmexico.json';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`NM HTTP ${res.status}`);
     const text = await res.text();
     const jsonStart = text.indexOf('(');
@@ -1685,7 +1745,7 @@ async function fetchNewMexicoCameras() {
 async function fetchOpenTrafficCameras() {
   const url = 'https://raw.githubusercontent.com/AidanWelch/OpenTrafficCamMap/refs/heads/master/cameras/USA.json';
   try {
-    const response = await fetch(url, { headers: {}});
+    const response = await fetch(url, { });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     const cameras = [];
@@ -1728,7 +1788,7 @@ async function fetchOpenTrafficCameras() {
 async function fetchMinnesotaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Minnesota/mn.geojson';
   try {
-    const res = await fetch(`${url}?v=${Date.now()}`, { headers: {}, cache: 'no-store' });
+    const res = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`MN HTTP ${res.status}`);
     const data = await res.json();
     if (!data?.features?.length) return [];
@@ -1880,6 +1940,18 @@ async function showViewer(camera) {
   const title = document.getElementById('viewer-title');
   const content = document.getElementById('viewer-content');
   viewer.classList.remove('hidden');
+
+// Proxy media (especially HLS) through Cloudflare Worker to avoid CORS issues.
+const __proxyBase = await getProxyBaseUrl();
+const proxifyMedia = (u) => {
+  if (!u || typeof u !== 'string') return u;
+  if (!__proxyBase) return u;
+  // Avoid double-proxy
+  if (u.startsWith(__proxyBase) || u.startsWith(location.origin + '/proxy')) return u;
+  if (!/^https?:\/\//i.test(u)) return u;
+  return __proxyBase + encodeURIComponent(u);
+};
+
 
   if (!camera.displayMode) {
     camera.displayMode = camera.type === 'video' ? 'video' : 'image';
@@ -2049,7 +2121,7 @@ async function showViewer(camera) {
           maxMaxBufferLength: 60,
           enableWorker: true
         });
-        currentHls.loadSource(videoUrl);
+        currentHls.loadSource(proxifyMedia(videoUrl));
         currentHls.attachMedia(vid);
         currentHls.on(window.Hls.Events.ERROR, (_, data) => {
           if (data && data.fatal) {
@@ -2063,7 +2135,7 @@ async function showViewer(camera) {
         showFallbackImage();
       }
     } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-      vid.src = videoUrl;
+      vid.src = proxifyMedia(videoUrl);
       vid.play().catch(() => {});
     } else {
       // Non-HLS video (or HLS not supported): use Video.js if available.
@@ -2072,7 +2144,7 @@ async function showViewer(camera) {
         setTimeout(() => {
           try {
             currentPlayer = videojs('camera-player', {
-              sources: [{ src: videoUrl, type: 'application/x-mpegURL' }],
+              sources: [{ src: proxifyMedia(videoUrl), type: 'application/x-mpegURL' }],
               fluid: true
             });
             currentPlayer.on('error', () => {
@@ -2191,6 +2263,7 @@ async function loadAllCameras() {
     "New Mexico": fetchNewMexicoCameras(),
     "Utah": fetchUtahCameras(),
     "Nevada": fetchNevadaCameras(),
+    "DFW": fetchDFWCameras(),
     "North Carolina": fetchNorthCarolinaCameras(),
     "South Carolina": fetchSouthCarolinaCameras(),
     "Tennessee": fetchTennesseeCameras(),
