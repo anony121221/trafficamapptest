@@ -1129,13 +1129,29 @@ async function fetchNorthCarolinaCameras() {
       const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
       if (cameraLocationMap.has(key)) return;
 
+      let imageUrl = p.imageURL;
+      if (imageUrl && imageUrl.includes('filename=')) {
+        try {
+          const u = new URL(imageUrl);
+          let fname = u.searchParams.get('filename') || '';
+          fname = fname.trim();
+          if (!fname) return;
+          if (/,jpg$/i.test(fname)) fname = fname.replace(/,jpg$/i, '.jpg');
+          if (/,png$/i.test(fname)) fname = fname.replace(/,png$/i, '.png');
+          if (!/\.(jpg|jpeg|png)$/i.test(fname)) fname = `${fname}.jpg`;
+          u.searchParams.set('filename', fname);
+          imageUrl = u.toString();
+        } catch {}
+      }
+      if (!imageUrl) return;
+
       const camera = {
         id: `NC-${p.id || idx}-${Math.random().toString(36).substr(2, 9)}`,
         name: p.name || `NC Camera ${idx}`,
         lat: lat,
         lon: lon,
         videoUrl: null,
-        imageUrl: p.imageURL,
+        imageUrl: imageUrl,
         type: 'image',
         state: 'NC',
         provider: 'NCDOT'
@@ -2275,16 +2291,17 @@ async function showViewer(camera) {
   const forceDirect = camera.forceDirect === true;
   const proxifyMedia = (u) => {
     if (!u || typeof u !== 'string') return u;
-    if (forceDirect) return u;
-    if (!__proxyBase) return u;
+    const normalized = u.replace(/ /g, '%20');
+    if (forceDirect) return normalized;
+    if (!__proxyBase) return normalized;
     // Avoid double-proxy
-    if (u.startsWith(__proxyBase) || u.startsWith(location.origin + '/proxy')) return u;
+    if (normalized.startsWith(__proxyBase) || normalized.startsWith(location.origin + '/proxy')) return normalized;
     try {
       const proxyOrigin = new URL(__proxyBase).origin;
-      if (u.startsWith(proxyOrigin + '/')) return u;
+      if (normalized.startsWith(proxyOrigin + '/')) return normalized;
     } catch {}
-    if (!/^https?:\/\//i.test(u)) return u;
-    return __proxyBase + encodeURIComponent(u);
+    if (!/^https?:\/\//i.test(normalized)) return normalized;
+    return __proxyBase + encodeURIComponent(normalized);
   };
 
 
@@ -2359,10 +2376,12 @@ async function showViewer(camera) {
   }
 
   const isFullscreen = document.fullscreenElement === viewer;
+  const hasAnyVideo = !!(camera.videoUrl || (camera.views && camera.views.some((v) => v.videoUrl)));
+  const hasAnyImage = !!(camera.imageUrl || (camera.views && camera.views.some((v) => v.imageUrl)));
 
   let headerHtml = `<div class="viewer-header-row"><span class="viewer-title-text">${camera.name}</span><div class="viewer-controls">`;
 
-  if (supportsVideo && supportsImage) {
+  if (hasAnyVideo && hasAnyImage) {
     const isVideoMode = camera.displayMode === 'video';
     headerHtml += `
       <button class="viewer-control-button ${isVideoMode ? 'active' : ''}" onclick="window.setCameraMode('${camera.id}', 'video')">Video</button>
