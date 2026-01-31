@@ -1699,15 +1699,17 @@ async function fetchAlabamaCameras() {
       const lon = parseFloat(loc.longitude);
       const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
       if (cameraLocationMap.has(key)) return;
-      const hasVideo = cam.hlsUrl && cam.hlsUrl !== '';
-      const hasImage = cam.imageUrl && cam.imageUrl !== '';
+      const videoUrl = cam.playbackUrls?.hls || cam.playbackUrls?.Hls || cam.hlsUrl || null;
+      const imageUrl = cam.snapshotImageUrl || cam.mapImageUrl || cam.imageUrl || null;
+      const hasVideo = !!videoUrl && videoUrl !== '';
+      const hasImage = !!imageUrl && imageUrl !== '';
       const camera = {
         id: `AL-${cam.id}-${Math.random().toString(36).substr(2, 9)}`,
         name: `${loc.displayRouteDesignator || ''} @ ${loc.displayCrossStreet || ''}`.trim() || `Camera ${cam.id}`,
         lat: lat,
         lon: lon,
-        videoUrl: hasVideo ? cam.hlsUrl : null,
-        imageUrl: hasImage ? cam.imageUrl : null,
+        videoUrl: hasVideo ? videoUrl : null,
+        imageUrl: hasImage ? imageUrl : null,
         type: hasVideo ? 'video' : 'image',
         state: 'AL',
         provider: 'ALDOT'
