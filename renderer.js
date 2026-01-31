@@ -2170,7 +2170,8 @@ async function showViewer(camera) {
         // Anti-caching timestamp logic
         const updateImage = () => {
           const separator = imageUrl.includes('?') ? '&' : '?';
-          img.src = `${imageUrl}${separator}t=${Date.now()}`;
+          const urlWithTs = `${imageUrl}${separator}t=${Date.now()}`;
+          img.src = proxifyMedia(urlWithTs);
         };
         
         // Initial load
