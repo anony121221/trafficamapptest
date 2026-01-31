@@ -414,6 +414,46 @@ async function fetchConnecticutCameras() {
   } catch (e) { console.error('CT Error', e); return []; }
 }
 
+async function fetchDelawareCameras() {
+  const url = 'https://tmc.deldot.gov/json/videocamera.json';
+  try {
+    const data = await fetchJsonWithProxy(url, { cache: 'no-store' });
+    const list = Array.isArray(data?.videoCameras) ? data.videoCameras : [];
+    if (!list.length) return [];
+
+    const cameras = [];
+    list.forEach((cam, idx) => {
+      if (cam.enabled === false) return;
+      const lat = parseFloat(cam.lat);
+      const lon = parseFloat(cam.lon);
+      if (isNaN(lat) || isNaN(lon)) return;
+      const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+      if (cameraLocationMap.has(key)) return;
+
+      const urls = cam.urls || {};
+      const videoUrl = isValidUrl(urls.m3u8s) ? urls.m3u8s : (isValidUrl(urls.m3u8) ? urls.m3u8 : null);
+      if (!videoUrl) return;
+
+      const camera = {
+        id: `DE-${cam.id || idx}-${Math.random().toString(36).substr(2, 9)}`,
+        name: cam.title || cam.id || `DE Camera ${idx}`,
+        lat,
+        lon,
+        videoUrl,
+        imageUrl: null,
+        type: 'video',
+        displayMode: 'video',
+        state: 'DE',
+        provider: 'DelDOT'
+      };
+      cameras.push(camera);
+      cameraLocationMap.set(key, camera);
+    });
+
+    return cameras;
+  } catch (e) { console.error('DE Error', e); return []; }
+}
+
 async function fetchFloridaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/main/Florida/florida.geojson';
   try {
@@ -1399,11 +1439,9 @@ async function fetchKansasCameras() {
 
 async function fetchIowaCameras() {
   const url = 'https://services.arcgis.com/8lRhdTsQyJpO52F1/arcgis/rest/services/Traffic_Cameras_View/FeatureServer/0/query';
-  const params = new URLSearchParams({ where: '1=1', outFields: 'ImageName,ImageURL,VideoURL', returnGeometry: 'true', f: 'json', _: Date.now() });
+  const params = new URLSearchParams({ where: '1=1', outFields: 'ImageName,ImageURL,VideoURL', returnGeometry: 'true', f: 'pjson', _: Date.now() });
   try {
-    const response = await fetch(`${url}?${params}`, { headers: {'Accept': 'application/json' }, cache: 'no-store' });
-    if (!response.ok) throw new Error(`IA HTTP ${response.status}`);
-    const data = await response.json();
+    const data = await fetchJsonWithProxy(`${url}?${params}`, { cache: 'no-store' });
     if (!data?.features?.length) return [];
     return data.features.map((f, idx) => {
       const attrs = f.attributes || {};
@@ -1707,15 +1745,17 @@ async function fetchAlabamaCameras() {
       const imageUrl = cam.snapshotImageUrl || cam.mapImageUrl || cam.imageUrl || null;
       const hasVideo = !!videoUrl && videoUrl !== '';
       const hasImage = !!imageUrl && imageUrl !== '';
+      // Alabama: prefer snapshots over unstable HLS (many Wowza streams 404)
+      const shouldDisableVideo = hasImage && videoUrl && /cdn3\.wowza\.com\/5\//i.test(videoUrl);
       const camera = {
         id: `AL-${cam.id}-${Math.random().toString(36).substr(2, 9)}`,
         name: `${loc.displayRouteDesignator || ''} @ ${loc.displayCrossStreet || ''}`.trim() || `Camera ${cam.id}`,
         lat: lat,
         lon: lon,
-        videoUrl: hasVideo ? videoUrl : null,
+        videoUrl: (!shouldDisableVideo && hasVideo) ? videoUrl : null,
         imageUrl: hasImage ? imageUrl : null,
-        type: hasVideo ? 'video' : 'image',
-        displayMode: hasImage ? 'image' : (hasVideo ? 'video' : 'image'),
+        type: (!shouldDisableVideo && hasVideo) ? 'video' : 'image',
+        displayMode: hasImage ? 'image' : ((!shouldDisableVideo && hasVideo) ? 'video' : 'image'),
         state: 'AL',
         provider: 'ALDOT'
       };
@@ -2564,6 +2604,7 @@ async function loadAllCameras() {
   // Named map for clearer logging
   const sources = {
     "Connecticut": fetchConnecticutCameras(),
+    "Delaware": fetchDelawareCameras(),
     "Florida": fetchFloridaCameras(),
     "Idaho": fetchIdahoCameras(),
     "Maine": fetchMaineCameras(),
