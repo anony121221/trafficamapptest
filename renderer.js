@@ -2075,6 +2075,10 @@ async function showViewer(camera) {
     if (!__proxyBase) return u;
     // Avoid double-proxy
     if (u.startsWith(__proxyBase) || u.startsWith(location.origin + '/proxy')) return u;
+    try {
+      const proxyOrigin = new URL(__proxyBase).origin;
+      if (u.startsWith(proxyOrigin + '/')) return u;
+    } catch {}
     if (!/^https?:\/\//i.test(u)) return u;
     return __proxyBase + encodeURIComponent(u);
   };
