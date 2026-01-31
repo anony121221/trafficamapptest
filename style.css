@@ -787,3 +787,9 @@ body {
 #viewer.fullscreen #viewer-content video {
   height: calc(100vh - 56px) !important;
 }
+
+#viewer.fullscreen #viewer-content img {
+  width: 100vw;
+  height: calc(100vh - 56px);
+  object-fit: contain;
+}
