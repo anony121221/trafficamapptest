@@ -1290,6 +1290,9 @@ async function fetchNevadaCameras() {
 
 async function fetchOklahomaCameras() {
   try {
+    const cameras = [];
+
+    // Primary OKTraffic video cameras
     const filter = {
       include: [
         { relation: 'mapCameras', scope: { include: 'streamDictionary' } },
@@ -1298,7 +1301,6 @@ async function fetchOklahomaCameras() {
     };
     const url = `https://oktraffic.org/api/CameraPoles?filter=${encodeURIComponent(JSON.stringify(filter))}`;
     const data = await fetchJsonWithProxy(url, { });
-    const cameras = [];
     data.forEach(pole => {
       if (pole.mapCameras?.length > 0) {
         const validViews = pole.mapCameras
@@ -1326,6 +1328,39 @@ async function fetchOklahomaCameras() {
         }
       }
     });
+
+    // Additional OK sensor cameras (image snapshots)
+    const sensorUrl = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Oklahoma/sensorcameras.geojson';
+    const sensorData = await fetchJsonWithProxy(sensorUrl, { });
+    if (sensorData?.features?.length) {
+      sensorData.features.forEach((f, idx) => {
+        const p = f.properties || {};
+        const c = f.geometry?.coordinates;
+        if (!c || c.length < 2) return;
+        const lat = parseFloat(c[1]);
+        const lon = parseFloat(c[0]);
+        if (isNaN(lat) || isNaN(lon)) return;
+        const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+        if (cameraLocationMap.has(key)) return;
+        const imageUrl = p.imagePath;
+        if (!imageUrl) return;
+        const camera = {
+          id: `OKS-${p.id || idx}-${Math.random().toString(36).substr(2, 9)}`,
+          name: p.locationName ? `OK Sensor ${p.locationName}` : `OK Sensor ${p.id || idx}`,
+          lat,
+          lon,
+          imageUrl,
+          videoUrl: null,
+          type: 'image',
+          displayMode: 'image',
+          state: 'OK',
+          provider: 'OK Sensor'
+        };
+        cameras.push(camera);
+        cameraLocationMap.set(key, camera);
+      });
+    }
+
     return cameras;
   } catch (e) { console.warn('OK Error', e); return []; }
 }
