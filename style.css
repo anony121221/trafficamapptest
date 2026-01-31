@@ -781,6 +781,9 @@ body {
 #viewer.fullscreen #viewer-content {
   max-height: none;
   height: calc(100vh - 56px);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
 }
 
 #viewer.fullscreen .video-js,
@@ -789,7 +792,11 @@ body {
 }
 
 #viewer.fullscreen #viewer-content img {
-  width: 100vw;
-  height: calc(100vh - 56px);
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#viewer.fullscreen #viewer-content > div {
+  display: none;
 }
