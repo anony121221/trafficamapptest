@@ -1011,6 +1011,63 @@ async function fetchNebraskaCameras() {
   } catch (e) { console.error('NE Error', e); return []; }
 }
 
+async function fetchNorthDakotaCameras() {
+  const url = 'https://travelfiles.dot.nd.gov/geojson_nc/cameras.json';
+  try {
+    const data = await fetchJsonWithProxy(url, { });
+    if (!data?.features?.length) return [];
+
+    const cameras = [];
+    data.features.forEach((f) => {
+      const p = f.properties || {};
+      const c = f.geometry?.coordinates;
+      if (!c || c.length < 2) return;
+
+      const lat = parseFloat(c[1]);
+      const lon = parseFloat(c[0]);
+      if (isNaN(lat) || isNaN(lon)) return;
+
+      const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+      if (cameraLocationMap.has(key)) return;
+
+      const camList = Array.isArray(p.Cameras) ? p.Cameras : [];
+      const views = camList
+        .map((cam) => {
+          const imageUrl = cam.FullPath || cam.LinkPath;
+          if (!imageUrl) return null;
+          return {
+            imageUrl,
+            videoUrl: null,
+            description: cam.Description || '',
+            direction: cam.Direction || ''
+          };
+        })
+        .filter(Boolean);
+
+      if (views.length === 0) return;
+
+      const camera = {
+        id: `ND-${p.ObjectID || f.id || Math.random().toString(36).substr(2, 9)}`,
+        name: views[0].description || p.Region || 'ND Camera',
+        lat,
+        lon,
+        imageUrl: views[0].imageUrl,
+        videoUrl: null,
+        views: views,
+        type: 'image',
+        displayMode: 'image',
+        state: 'ND',
+        provider: 'NDDOT'
+      };
+
+      cameras.push(camera);
+      cameraLocationMap.set(key, camera);
+    });
+
+    return cameras;
+  } catch (e) { console.error('ND Error', e); return []; }
+}
+
 async function fetchNorthCarolinaCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/North%20Carolina/nc.geojson';
   try {
@@ -2280,6 +2337,7 @@ async function loadAllCameras() {
     "South Carolina": fetchSouthCarolinaCameras(),
     "Tennessee": fetchTennesseeCameras(),
     "Nebraska": fetchNebraskaCameras(),
+    "North Dakota": fetchNorthDakotaCameras(),
     "Minnesota": fetchMinnesotaCameras(),
     "OpenTrafficCam": fetchOpenTrafficCameras()
   };
