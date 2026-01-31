@@ -267,8 +267,10 @@ function initAlertsLayer() {
 function applyInitialLayerVisibility() {
   const mrmsToggle = document.getElementById('mrms-toggle');
   const alertsToggle = document.getElementById('alerts-toggle');
+  const cameraToggle = document.getElementById('camera-toggle');
   if (mrmsToggle) toggleMRMS(mrmsToggle.checked);
   if (alertsToggle) toggleAlerts(alertsToggle.checked);
+  if (cameraToggle) setLayerVisibility(CAMERA_POINT_LAYER_ID, cameraToggle.checked);
 }
 
 function setLayerVisibility(layerId, isVisible) {
@@ -2209,7 +2211,7 @@ async function showViewer(camera) {
     `;
   }
 
-  headerHtml += `<button id="viewer-fullscreen-btn" class="viewer-control-button" onclick="window.toggleViewerFullscreen()">${isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</button>`;
+  headerHtml += `<button id="viewer-fullscreen-btn" class="viewer-control-button icon-button" title="Fullscreen" onclick="window.toggleViewerFullscreen()">${isFullscreen ? '⤢' : '⛶'}</button>`;
   headerHtml += `</div></div>`;
 
   if (camera.views && camera.views.length > 1) {
@@ -2238,6 +2240,7 @@ async function showViewer(camera) {
   if (headerRow) {
     const closeBtn = document.getElementById('close-viewer');
     if (closeBtn && !headerRow.contains(closeBtn)) {
+      closeBtn.textContent = '×';
       closeBtn.removeAttribute('style');
       closeBtn.style.position = 'static';
       closeBtn.style.marginLeft = '8px';
@@ -2640,6 +2643,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('mrms-toggle').addEventListener('change', (e) => toggleMRMS(e.target.checked));
   
   document.getElementById('alerts-toggle').addEventListener('change', (e) => toggleAlerts(e.target.checked));
+  const cameraToggle = document.getElementById('camera-toggle');
+  if (cameraToggle) {
+    cameraToggle.addEventListener('change', (e) => {
+      setLayerVisibility(CAMERA_POINT_LAYER_ID, e.target.checked);
+    });
+  }
 
   document.getElementById('search-input').addEventListener('input', (e) => {
     filterCameras(e.target.value, document.getElementById('state-filter').value);
