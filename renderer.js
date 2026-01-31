@@ -2212,6 +2212,7 @@ async function showViewer(camera) {
   }
 
   headerHtml += `<button id="viewer-fullscreen-btn" class="viewer-control-button icon-button" title="Fullscreen" onclick="window.toggleViewerFullscreen()">${isFullscreen ? '⤢' : '⛶'}</button>`;
+  headerHtml += `<button id="viewer-close-btn" class="viewer-control-button icon-button" title="Close" onclick="window.closeViewer()">×</button>`;
   headerHtml += `</div></div>`;
 
   if (camera.views && camera.views.length > 1) {
@@ -2240,14 +2241,7 @@ async function showViewer(camera) {
   if (closeBtn) {
     closeBtn.textContent = '×';
     closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.removeAttribute('style');
-    closeBtn.style.position = 'absolute';
-    closeBtn.style.top = '10px';
-    closeBtn.style.right = '10px';
-    closeBtn.style.marginLeft = '0';
-    if (!viewer.contains(closeBtn)) {
-      viewer.appendChild(closeBtn);
-    }
+    closeBtn.onclick = window.closeViewer;
   }
 
   // FIXED: Logic to fallback to image if video fails or is blocked
@@ -2413,6 +2407,21 @@ window.toggleViewerFullscreen = () => {
   }
 };
 
+window.closeViewer = () => {
+  const viewer = document.getElementById('viewer');
+  if (!viewer) return;
+  viewer.classList.add('hidden');
+  if (document.fullscreenElement === viewer) {
+    document.exitFullscreen().catch(() => {});
+  }
+  destroyCurrentVideo();
+  if (imageRefreshInterval) {
+    clearInterval(imageRefreshInterval);
+    imageRefreshInterval = null;
+  }
+  selectedCameraId = null;
+};
+
 document.addEventListener('fullscreenchange', () => {
   const btn = document.getElementById('viewer-fullscreen-btn');
   if (btn) {
@@ -2426,18 +2435,7 @@ document.addEventListener('fullscreenchange', () => {
   }
 });
 
-document.getElementById('close-viewer').onclick = () => {
-  document.getElementById('viewer').classList.add('hidden');
-  if (document.fullscreenElement === document.getElementById('viewer')) {
-    document.exitFullscreen().catch(() => {});
-  }
-  destroyCurrentVideo();
-  if (imageRefreshInterval) {
-    clearInterval(imageRefreshInterval);
-    imageRefreshInterval = null;
-  }
-  selectedCameraId = null;
-};
+document.getElementById('close-viewer').onclick = window.closeViewer;
 
 // INITIALIZATION
 async function loadAllCameras() {
