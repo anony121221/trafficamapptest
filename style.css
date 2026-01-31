@@ -486,7 +486,7 @@ body {
   cursor: pointer;
   font-size: 14px;
   z-index: 20;
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   line-height: 1;
@@ -528,7 +528,7 @@ body {
   display: flex;
   gap: 6px;
   align-items: center;
-  margin-right: 40px;
+  margin-right: 0;
 }
 
 .viewer-control-button {
