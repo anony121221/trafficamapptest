@@ -2245,6 +2245,8 @@ async function showViewer(camera) {
         img.style.height = 'auto';
         img.style.display = 'block';
         img.alt = "Traffic Camera Feed"; // Accessibility improvement
+        img.crossOrigin = 'anonymous';
+        img.referrerPolicy = 'no-referrer';
         
         // Anti-caching timestamp logic
         const updateImage = () => {
