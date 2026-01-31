@@ -2239,13 +2239,15 @@ async function showViewer(camera) {
   const headerRow = title.querySelector('.viewer-header-row');
   if (headerRow) {
     const closeBtn = document.getElementById('close-viewer');
-    if (closeBtn && !headerRow.contains(closeBtn)) {
+    if (closeBtn) {
       closeBtn.textContent = '×';
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.removeAttribute('style');
       closeBtn.style.position = 'static';
       closeBtn.style.marginLeft = '8px';
-      headerRow.appendChild(closeBtn);
+      if (!headerRow.contains(closeBtn)) {
+        headerRow.appendChild(closeBtn);
+      }
     }
   }
 
