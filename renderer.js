@@ -2235,19 +2235,18 @@ async function showViewer(camera) {
   }
   title.innerHTML = headerHtml;
 
-  // Ensure the close button lives next to the controls (not overlapping).
-  const headerRow = title.querySelector('.viewer-header-row');
-  if (headerRow) {
-    const closeBtn = document.getElementById('close-viewer');
-    if (closeBtn) {
-      closeBtn.textContent = '×';
-      closeBtn.setAttribute('aria-label', 'Close');
-      closeBtn.removeAttribute('style');
-      closeBtn.style.position = 'static';
-      closeBtn.style.marginLeft = '8px';
-      if (!headerRow.contains(closeBtn)) {
-        headerRow.appendChild(closeBtn);
-      }
+  // Ensure the close button is present and anchored in the viewer corner.
+  const closeBtn = document.getElementById('close-viewer');
+  if (closeBtn) {
+    closeBtn.textContent = '×';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.removeAttribute('style');
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '10px';
+    closeBtn.style.right = '10px';
+    closeBtn.style.marginLeft = '0';
+    if (!viewer.contains(closeBtn)) {
+      viewer.appendChild(closeBtn);
     }
   }
 
