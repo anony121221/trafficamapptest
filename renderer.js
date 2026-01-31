@@ -1687,7 +1687,7 @@ async function fetchSouthDakotaCameras() {
 }
 
 async function fetchAlabamaCameras() {
-  const url = 'https://api.algotraffic.com/v3.0/Cameras';
+  const url = 'https://api.algotraffic.com/v4.0/Cameras';
   try {
     const data = await fetchJsonWithProxy(url, { cache: 'no-store' });
     if (!Array.isArray(data)) return [];
@@ -1717,6 +1717,118 @@ async function fetchAlabamaCameras() {
     });
     return cameras;
   } catch (e) { console.error('AL Error', e); return []; }
+}
+
+async function fetchGeorgiaCameras() {
+  const apiKey = (typeof window !== 'undefined' && (window.GEORGIA_511_API_KEY || window.GA_511_API_KEY))
+    ? (window.GEORGIA_511_API_KEY || window.GA_511_API_KEY)
+    : '';
+  const url = `https://511ga.org/api/v2/get/cameras?key=${encodeURIComponent(apiKey)}&format=json`;
+  try {
+    if (!apiKey) {
+      console.warn('Georgia cameras require an API key. Set window.GEORGIA_511_API_KEY (or window.GA_511_API_KEY).');
+      return [];
+    }
+
+    const data = await fetchJsonWithProxy(url, { cache: 'no-store' });
+    let list = [];
+    if (Array.isArray(data)) list = data;
+    else if (data && Array.isArray(data.cameras)) list = data.cameras;
+    else if (data && data.result && Array.isArray(data.result)) list = data.result;
+
+    const cameras = [];
+    list.forEach((cam, idx) => {
+      let lat = cam.latitude || cam.Latitude;
+      let lon = cam.longitude || cam.Longitude;
+      if (!lat && cam.location && typeof cam.location === 'object') {
+        lat = cam.location.latitude || cam.location.Latitude;
+        lon = cam.location.longitude || cam.location.Longitude;
+      }
+      lat = parseFloat(lat);
+      lon = parseFloat(lon);
+      if (!lat || !lon) return;
+
+      const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+      if (cameraLocationMap.has(key)) return;
+
+      const views = cam.views || cam.Views;
+      let imageUrl = null;
+      let videoUrl = null;
+
+      if (Array.isArray(views) && views.length > 0) {
+        const v0 = views[0] || {};
+        imageUrl = v0.url || v0.Url || v0.imageUrl || v0.imageUrlSmall || v0.imageUrlLarge || null;
+        videoUrl = v0.videoUrl || v0.hlsUrl || v0.streamUrl || null;
+      }
+
+      if (!imageUrl) imageUrl = cam.url || cam.Url || cam.imageUrl || cam.imageUrlSmall || cam.imageUrlLarge || null;
+      if (!videoUrl) videoUrl = cam.videoUrl || cam.hlsUrl || cam.streamUrl || null;
+
+      if (!imageUrl && !videoUrl) return;
+
+      const camera = {
+        id: `GA-${cam.id || cam.Id || idx}-${Math.random().toString(36).substr(2, 9)}`,
+        name: cam.location || cam.Location || cam.name || cam.Name || `GA Camera ${cam.id || idx}`,
+        lat,
+        lon,
+        videoUrl: isValidUrl(videoUrl) ? videoUrl : null,
+        imageUrl: imageUrl,
+        type: isValidUrl(videoUrl) ? 'video' : 'image',
+        displayMode: isValidUrl(videoUrl) ? 'video' : 'image',
+        state: 'GA',
+        provider: 'Georgia 511'
+      };
+
+      cameras.push(camera);
+      cameraLocationMap.set(key, camera);
+    });
+
+    return cameras;
+  } catch (e) { console.error('GA Error', e); return []; }
+}
+
+async function fetchKentuckyCameras() {
+  const base = 'https://kygisserver.ky.gov/arcgis/rest/services/WGS84WM_Services/Ky_WebCams_WGS84WM/MapServer/0/query';
+  const url = `${base}?where=1%3D1&outFields=*&f=geojson&outSR=4326&cacheHint=true`;
+  try {
+    const data = await fetchJsonWithProxy(url, { cache: 'no-store' });
+    if (!data?.features?.length) return [];
+
+    const cameras = [];
+    data.features.forEach((f, idx) => {
+      const p = f.properties || {};
+      const c = f.geometry?.coordinates;
+      if (!c || c.length < 2) return;
+
+      const lon = parseFloat(c[0]);
+      const lat = parseFloat(c[1]);
+      if (!lat || !lon) return;
+
+      const imageUrl = p.snapshot;
+      if (!imageUrl) return;
+
+      const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+      if (cameraLocationMap.has(key)) return;
+
+      const camera = {
+        id: `KY-${p.id || p.OBJECTID || idx}-${Math.random().toString(36).substr(2, 9)}`,
+        name: p.name || p.description || `KY Camera ${idx}`,
+        lat,
+        lon,
+        videoUrl: null,
+        imageUrl,
+        type: 'image',
+        displayMode: 'image',
+        state: 'KY',
+        provider: 'KYTC'
+      };
+
+      cameras.push(camera);
+      cameraLocationMap.set(key, camera);
+    });
+
+    return cameras;
+  } catch (e) { console.error('KY Error', e); return []; }
 }
 
 async function fetchMissouriCameras() {
@@ -2465,7 +2577,9 @@ async function loadAllCameras() {
     "Mississippi": fetchMississippiCameras(),
     "Texas": fetchTexasCameras(),
     "South Dakota": fetchSouthDakotaCameras(),
+    "Georgia": fetchGeorgiaCameras(),
     "Alabama": fetchAlabamaCameras(),
+    "Kentucky": fetchKentuckyCameras(),
     "Missouri": fetchMissouriCameras(),
     "Virginia": fetchVirginiaCameras(),
     "West Virginia": fetchWestVirginiaCameras(),
