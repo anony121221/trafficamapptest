@@ -481,8 +481,8 @@ body {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  width: 600px;
-  max-height: 500px;
+  width: 720px;
+  max-height: 540px;
   background: #0a0a0a;
   border-radius: 8px;
   box-shadow: 0 4px 30px rgba(0,0,0,0.9);
@@ -500,23 +500,24 @@ body {
   position: absolute;
   top: 10px;
   right: 10px;
-  background: rgba(0,0,0,0.9);
+  background: rgba(0,0,0,0.85);
   color: white;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  border: 1px solid #333;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 #close-viewer:hover {
-  background: rgba(0,0,0,1);
+  background: rgba(10,10,10,0.95);
+  border-color: #4a9eff;
 }
 
 #viewer-title {
@@ -547,18 +548,19 @@ body {
 .viewer-controls {
   display: flex;
   gap: 6px;
-
+  align-items: center;
 }
 
 .viewer-control-button {
   background: #111;
   color: #ddd;
   border: 1px solid #333;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 6px 10px;
   font-size: 12px;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border-color 0.2s;
+  white-space: nowrap;
 }
 
 .viewer-control-button:hover {
@@ -594,7 +596,7 @@ body {
 
 .video-js {
   width: 100% !important;
-  height: 400px !important;
+  height: 440px !important;
 }
 
 /* Fix white background on camera popup */
@@ -782,4 +784,22 @@ body {
 .camera-list::-webkit-scrollbar-thumb:hover,
 #viewer-content::-webkit-scrollbar-thumb:hover {
   background: #3a3a3a;
+}
+#viewer.fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  bottom: 0;
+  right: 0;
+  border-radius: 0;
+}
+
+#viewer.fullscreen #viewer-content {
+  max-height: none;
+  height: calc(100vh - 56px);
+}
+
+#viewer.fullscreen .video-js,
+#viewer.fullscreen #viewer-content video {
+  height: calc(100vh - 56px) !important;
 }
