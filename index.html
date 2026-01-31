@@ -8,7 +8,7 @@
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <link href="https://vjs.zencdn.net/8.6.1/video-js.css" rel="stylesheet" />
 
-  <link rel="stylesheet" href="style.css?v=20260130l">
+  <link rel="stylesheet" href="style.css?v=20260130m">
 </head>
 
 <body>
@@ -26,13 +26,19 @@
       <label class="filter-label">WEATHER LAYERS</label>
 
       <label class="toggle-item">
-        <input type="checkbox" id="mrms-toggle" checked>
-        <span>MRMS (Radar)</span>
+        <span class="toggle-text">MRMS (Radar)</span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="mrms-toggle" checked>
+          <span class="toggle-slider"></span>
+        </span>
       </label>
 
       <label class="toggle-item">
-        <input type="checkbox" id="alerts-toggle" checked>
-        <span>NWS Alerts</span>
+        <span class="toggle-text">NWS Alerts</span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="alerts-toggle" checked>
+          <span class="toggle-slider"></span>
+        </span>
       </label>
     </div>
 
@@ -92,6 +98,17 @@
       </select>
     </div>
 
+    <div class="filter-section">
+      <label class="filter-label">CAMERAS</label>
+      <label class="toggle-item">
+        <span class="toggle-text">Show Dots</span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="camera-toggle" checked>
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
+    </div>
+
     <div class="stats-section">
       <div class="stat-item">
         <span class="stat-label">Showing:</span>
@@ -142,6 +159,6 @@
     window.PROXY_BASE_URL = "https://noisy-rice-a298.colewx.workers.dev/proxy?url=";
   </script>
 
-  <script src="renderer.js?v=20260130l"></script>
+  <script src="renderer.js?v=20260130m"></script>
 </body>
 </html>
