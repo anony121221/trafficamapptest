@@ -2233,6 +2233,18 @@ async function showViewer(camera) {
   }
   title.innerHTML = headerHtml;
 
+  // Ensure the close button lives next to the controls (not overlapping).
+  const headerRow = title.querySelector('.viewer-header-row');
+  if (headerRow) {
+    const closeBtn = document.getElementById('close-viewer');
+    if (closeBtn && !headerRow.contains(closeBtn)) {
+      closeBtn.removeAttribute('style');
+      closeBtn.style.position = 'static';
+      closeBtn.style.marginLeft = '8px';
+      headerRow.appendChild(closeBtn);
+    }
+  }
+
   // FIXED: Logic to fallback to image if video fails or is blocked
   const showFallbackImage = () => {
     if (imageRefreshInterval) clearInterval(imageRefreshInterval);
@@ -2400,6 +2412,11 @@ document.addEventListener('fullscreenchange', () => {
   const btn = document.getElementById('viewer-fullscreen-btn');
   if (btn) {
     btn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+  }
+  const viewer = document.getElementById('viewer');
+  if (viewer) {
+    if (document.fullscreenElement === viewer) viewer.classList.add('fullscreen');
+    else viewer.classList.remove('fullscreen');
   }
 });
 
