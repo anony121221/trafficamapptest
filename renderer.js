@@ -2241,6 +2241,7 @@ async function showViewer(camera) {
     const closeBtn = document.getElementById('close-viewer');
     if (closeBtn && !headerRow.contains(closeBtn)) {
       closeBtn.textContent = '×';
+      closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.removeAttribute('style');
       closeBtn.style.position = 'static';
       closeBtn.style.marginLeft = '8px';
@@ -2414,7 +2415,8 @@ window.toggleViewerFullscreen = () => {
 document.addEventListener('fullscreenchange', () => {
   const btn = document.getElementById('viewer-fullscreen-btn');
   if (btn) {
-    btn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+    btn.textContent = document.fullscreenElement ? '⤢' : '⛶';
+    btn.setAttribute('title', document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen');
   }
   const viewer = document.getElementById('viewer');
   if (viewer) {
