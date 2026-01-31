@@ -1552,6 +1552,7 @@ async function fetchMississippiCameras() {
 async function fetchTexasCameras() {
   const austinUrl = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Texas/Austin.geojson';
   const houstonUrl = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/Texas/Houston.geojson';
+  const txdotUrl = 'https://raw.githubusercontent.com/anony121221/maps-data/main/Texas/txdot_cctv_all.geojson';
   const cameras = [];
   try {
     const res = await fetch(`${austinUrl}?v=${Date.now()}`, { cache: 'no-store' });
@@ -1614,6 +1615,37 @@ async function fetchTexasCameras() {
       }
     }
   } catch (e) { console.error('TX Houston Error', e); }
+  try {
+    const data = await fetchJsonWithProxy(txdotUrl, { });
+    if (data?.features?.length) {
+      data.features.forEach((f, idx) => {
+        const p = f.properties || {};
+        const c = f.geometry?.coordinates;
+        if (!c || c.length < 2) return;
+        const lat = parseFloat(c[1]);
+        const lon = parseFloat(c[0]);
+        if (isNaN(lat) || isNaN(lon)) return;
+        const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+        if (cameraLocationMap.has(key)) return;
+        const imageUrl = p.snapshot_jpeg_url || p.snapshot_json_url;
+        if (!imageUrl) return;
+        const camera = {
+          id: `TX-TXDOT-${p.icdId || p.name || idx}-${Math.random().toString(36).substr(2, 9)}`,
+          name: p.name || p.icdId || 'TxDOT Camera',
+          lat: lat,
+          lon: lon,
+          imageUrl: imageUrl,
+          videoUrl: null,
+          type: 'image',
+          displayMode: 'image',
+          state: 'TX',
+          provider: 'TxDOT'
+        };
+        cameras.push(camera);
+        cameraLocationMap.set(key, camera);
+      });
+    }
+  } catch (e) { console.error('TX TxDOT Error', e); }
   return cameras;
 }
 
