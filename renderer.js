@@ -1489,12 +1489,16 @@ async function fetchLouisianaCameras() {
       const lon = parseFloat(coords[0]);
       const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
       if (cameraLocationMap.has(key)) return;
+
+      const camId = props.id || props.cameraId || props.cam_id;
+      const imageUrl = camId ? `https://www.511la.org/map/Cctv/${camId}` : props.page_url;
+
       const camera = {
         id: `LA-${props.id || idx}-${Math.random().toString(36).substr(2, 9)}`,
         name: props.name || `Camera ${props.id}`,
         lat: lat,
         lon: lon,
-        imageUrl: props.page_url,
+        imageUrl: imageUrl,
         videoUrl: null,
         type: 'image',
         state: 'LA',
@@ -1711,6 +1715,7 @@ async function fetchAlabamaCameras() {
         videoUrl: hasVideo ? videoUrl : null,
         imageUrl: hasImage ? imageUrl : null,
         type: hasVideo ? 'video' : 'image',
+        displayMode: hasImage ? 'image' : (hasVideo ? 'video' : 'image'),
         state: 'AL',
         provider: 'ALDOT'
       };
