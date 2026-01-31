@@ -2380,6 +2380,11 @@ async function showViewer(camera) {
         
         // Anti-caching timestamp logic
         const updateImage = () => {
+          const isLouisiana511 = /\/\/www\.511la\.org\/map\/Cctv\//i.test(imageUrl);
+          if (isLouisiana511) {
+            img.src = proxifyMedia(imageUrl);
+            return;
+          }
           const separator = imageUrl.includes('?') ? '&' : '?';
           const urlWithTs = `${imageUrl}${separator}t=${Date.now()}`;
           img.src = proxifyMedia(urlWithTs);
@@ -2396,15 +2401,15 @@ async function showViewer(camera) {
             // content.innerHTML = '<div style="padding:20px; text-align:center; color:#fff;">Image currently unavailable</div>';
         };
         
-        // Refresh every 3 seconds
-        imageRefreshInterval = setInterval(updateImage, 3000);
+        const refreshMs = /\/\/www\.511la\.org\/map\/Cctv\//i.test(imageUrl) ? 10000 : 3000;
+        imageRefreshInterval = setInterval(updateImage, refreshMs);
         
         const info = document.createElement('div');
         info.style.padding = '8px';
         info.style.fontSize = '12px';
         info.style.color = '#888';
         info.style.textAlign = 'center';
-        info.innerHTML = 'Live View (Refreshes every 3s)';
+        info.innerHTML = refreshMs === 3000 ? 'Live View (Refreshes every 3s)' : 'Live View (Refreshes every 10s)';
         content.appendChild(info);
     } else {
         content.innerHTML = '<div style="padding:20px; text-align:center; color:#fff;">No visual available</div>';
@@ -2436,11 +2441,6 @@ async function showViewer(camera) {
         currentHls.on(window.Hls.Events.ERROR, (_, data) => {
           if (data && data.fatal) {
             console.warn('HLS fatal error', data);
-            if (!forceDirect && __proxyBase) {
-              camera.forceDirect = true;
-              showViewer(camera);
-              return;
-            }
             brokenVideoUrls.add(rawVideoUrl);
             showFallbackImage();
           }
