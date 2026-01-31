@@ -1781,6 +1781,49 @@ async function fetchVirginiaCameras() {
   } catch (e) { console.error('VA Error', e); return []; }
 }
 
+async function fetchWestVirginiaCameras() {
+  const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/West%20Virginia/westvirginia.geojson';
+  try {
+    const data = await fetchJsonWithProxy(url, { });
+    if (!data?.features?.length) return [];
+
+    const cameras = [];
+    data.features.forEach((f, idx) => {
+      const p = f.properties || {};
+      const c = f.geometry?.coordinates;
+      if (!c || c.length < 2) return;
+
+      const lat = parseFloat(c[1]);
+      const lon = parseFloat(c[0]);
+      if (isNaN(lat) || isNaN(lon)) return;
+
+      const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+      if (cameraLocationMap.has(key)) return;
+
+      const videoUrl = isValidUrl(p.stream) ? p.stream : null;
+      if (!videoUrl) return;
+
+      const camera = {
+        id: `WV-${p.id || idx}-${Math.random().toString(36).substr(2, 9)}`,
+        name: p.label || p.title || `WV Camera ${idx}`,
+        lat: lat,
+        lon: lon,
+        videoUrl: videoUrl,
+        imageUrl: null,
+        type: 'video',
+        displayMode: 'video',
+        state: 'WV',
+        provider: 'WVDOT'
+      };
+
+      cameras.push(camera);
+      cameraLocationMap.set(key, camera);
+    });
+
+    return cameras;
+  } catch (e) { console.error('WV Error', e); return []; }
+}
+
 async function fetchNewMexicoCameras() {
   const url = 'https://raw.githubusercontent.com/anony121221/maps-data/refs/heads/main/New%20Mexico/newmexico.json';
   try {
@@ -2402,6 +2445,7 @@ async function loadAllCameras() {
     "Alabama": fetchAlabamaCameras(),
     "Missouri": fetchMissouriCameras(),
     "Virginia": fetchVirginiaCameras(),
+    "West Virginia": fetchWestVirginiaCameras(),
     "New Mexico": fetchNewMexicoCameras(),
     "Utah": fetchUtahCameras(),
     "Nevada": fetchNevadaCameras(),
